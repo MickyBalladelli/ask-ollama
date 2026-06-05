@@ -53,6 +53,14 @@ Build for production:
 npm run build
 ```
 
+Build a self-contained Windows app:
+
+```bash
+npm run dist:win
+```
+
+The portable `.exe` is written to `release/`. It bundles the React app and Electron shell. Ollama must still be running on the Windows machine at `http://localhost:11434`.
+
 Preview the production build:
 
 ```bash

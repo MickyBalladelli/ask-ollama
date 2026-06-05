@@ -4,7 +4,8 @@ import ModelSelect from './ModelSelect.jsx'
 
 const defaultPrompt = 'Write a short markdown note about why local LLMs are useful.'
 
-const apiBaseUrl = (import.meta.env.VITE_OLLAMA_API_BASE_URL || '/api/ollama').replace(/\/+$/, '')
+const defaultApiBaseUrl = window.location.protocol === 'file:' ? 'http://localhost:11434' : '/api/ollama'
+const apiBaseUrl = (import.meta.env.VITE_OLLAMA_API_BASE_URL || defaultApiBaseUrl).replace(/\/+$/, '')
 const apiUrl = path => `${apiBaseUrl}${path}`
 
 export default function OllamaChat() {
