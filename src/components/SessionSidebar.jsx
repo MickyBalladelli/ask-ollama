@@ -1,4 +1,5 @@
 import ModelSelect from './ModelSelect.jsx'
+import logoUrl from '../images/ollama.png'
 
 export default function SessionSidebar({
   sessions,
@@ -15,6 +16,7 @@ export default function SessionSidebar({
   return (
     <aside className="session-sidebar">
       <div className="app-title">
+        <img className="app-logo" src={logoUrl} alt="" />
         <div>
           <p className="eyebrow">Ollama</p>
           <h1>Ask Ollama</h1>

@@ -1,25 +1,10 @@
 import { useRef, useState } from 'react'
 import AttachmentList from './AttachmentList.jsx'
 import { extractPdfText } from '../lib/pdfText.js'
+import { isImageFile, readFileAsDataUrl } from '../lib/files.js'
 
 const maxFileBytes = 30 * 1024 * 1024
-const imageExtensions = ['.png', '.jpg', '.jpeg', '.webp']
-
-function isImageFile(file) {
-  const fileName = file.name.toLowerCase()
-
-  return file.type.startsWith('image/') || imageExtensions.some(extension => fileName.endsWith(extension))
-}
-
-function readFileAsDataUrl(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-
-    reader.addEventListener('load', () => resolve(reader.result))
-    reader.addEventListener('error', () => reject(reader.error))
-    reader.readAsDataURL(file)
-  })
-}
+const bigAttachmentChars = 120000
 
 async function readFileAttachment(file) {
   if (isImageFile(file)) {
@@ -27,13 +12,18 @@ async function readFileAttachment(file) {
 
     return {
       content: '',
-      image: dataUrl.split(',')[1] ?? ''
+      image: dataUrl.split(',')[1] ?? '',
+      previewUrl: dataUrl
     }
   }
 
   const content = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')
     ? await extractPdfText(file)
     : await file.text()
+
+  if (file.name.toLowerCase().endsWith('.pdf') && !content.trim()) {
+    throw new Error('empty-pdf')
+  }
 
   return { content }
 }
@@ -46,10 +36,14 @@ export default function ChatComposer({
   onChange,
   onAttachmentsChange,
   onSubmit,
-  onCancel
+  onCancel,
+  warning
 }) {
   const fileInputRef = useRef(null)
   const [fileError, setFileError] = useState('')
+  const [dragging, setDragging] = useState(false)
+
+  const hasBigAttachment = attachments.some(attachment => (attachment.content?.length ?? 0) > bigAttachmentChars)
 
   function handleKeyDown(event) {
     if (event.key === 'Enter' && !event.shiftKey) {
@@ -96,9 +90,18 @@ export default function ChatComposer({
 
   function handleDrop(event) {
     event.preventDefault()
+    setDragging(false)
 
     if (!loading) {
       addFiles(event.dataTransfer.files)
+    }
+  }
+
+  function handlePaste(event) {
+    const files = Array.from(event.clipboardData.files).filter(isImageFile)
+
+    if (files.length > 0 && !loading) {
+      addFiles(files)
     }
   }
 
@@ -108,21 +111,28 @@ export default function ChatComposer({
 
   return (
     <form
-      className="chat-composer"
+      className={dragging ? 'chat-composer dragging' : 'chat-composer'}
       onSubmit={onSubmit}
-      onDragOver={event => event.preventDefault()}
+      onDragOver={event => {
+        event.preventDefault()
+        setDragging(true)
+      }}
+      onDragLeave={() => setDragging(false)}
       onDrop={handleDrop}
     >
       <div className="composer-main">
         <AttachmentList attachments={attachments} onRemove={removeAttachment} />
 
         {fileError && <p className="file-error">{fileError}</p>}
+        {warning && <p className="file-warning">{warning}</p>}
+        {hasBigAttachment && <p className="file-warning">Big file. Model may forget far text.</p>}
 
         <textarea
           aria-label="Message"
           value={value}
           onChange={event => onChange(event.target.value)}
           onKeyDown={handleKeyDown}
+          onPaste={handlePaste}
           rows="2"
           placeholder="Ask Ollama..."
         />

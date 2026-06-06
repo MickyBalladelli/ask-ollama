@@ -7,7 +7,13 @@ export async function getOllamaModels() {
     return window.ollamaDesktop.tags()
   }
 
-  const response = await fetch(apiUrl('/api/tags'))
+  let response
+
+  try {
+    response = await fetch(apiUrl('/api/tags'))
+  } catch {
+    throw new Error('Ollama not running.')
+  }
 
   if (!response.ok) {
     throw new Error(`Ollama models failed ${response.status}`)
@@ -22,19 +28,29 @@ export async function generateOllamaAnswer({ model, prompt, images = [], onChunk
     return
   }
 
-  const response = await fetch(apiUrl('/api/generate'), {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      model,
-      prompt,
-      images,
-      stream: true
-    }),
-    signal
-  })
+  let response
+
+  try {
+    response = await fetch(apiUrl('/api/generate'), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model,
+        prompt,
+        images,
+        stream: true
+      }),
+      signal
+    })
+  } catch (err) {
+    if (err.name === 'AbortError') {
+      throw err
+    }
+
+    throw new Error('Ollama not running.')
+  }
 
   if (!response.ok) {
     throw new Error(`Ollama said ${response.status}`)

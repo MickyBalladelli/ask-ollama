@@ -28,9 +28,11 @@
   "build": {
     "appId": "dev.micky.askollama",
     "productName": "Ask Ollama",
+    "icon": "src/images/ollama.png",
     "files": [
       "dist/**/*",
       "electron/**/*",
+      "src/images/**/*",
       "package.json"
     ],
     "directories": {

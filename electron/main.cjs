@@ -1,6 +1,7 @@
 const { app, BrowserWindow, ipcMain } = require('electron')
 const path = require('node:path')
 const activeRequests = new Map()
+const iconPath = path.join(__dirname, '..', 'src', 'images', 'ollama.png')
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -9,6 +10,7 @@ function createWindow() {
     minWidth: 900,
     minHeight: 620,
     title: 'Ask Ollama',
+    icon: iconPath,
     backgroundColor: '#0f172a',
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
@@ -41,7 +43,13 @@ function ollamaUrl(pathname) {
 }
 
 ipcMain.handle('ollama:tags', async () => {
-  const response = await fetch(ollamaUrl('/api/tags'))
+  let response
+
+  try {
+    response = await fetch(ollamaUrl('/api/tags'))
+  } catch {
+    throw new Error('Ollama not running.')
+  }
 
   if (!response.ok) {
     throw new Error(`Ollama models failed ${response.status}`)
@@ -56,17 +64,27 @@ ipcMain.on('ollama:generate', async (event, requestId, body) => {
   activeRequests.set(requestId, controller)
 
   try {
-    const response = await fetch(ollamaUrl('/api/generate'), {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        ...body,
-        stream: true
-      }),
-      signal: controller.signal
-    })
+    let response
+
+    try {
+      response = await fetch(ollamaUrl('/api/generate'), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          ...body,
+          stream: true
+        }),
+        signal: controller.signal
+      })
+    } catch (err) {
+      if (err.name === 'AbortError') {
+        throw err
+      }
+
+      throw new Error('Ollama not running.')
+    }
 
     if (!response.ok) {
       throw new Error(`Ollama said ${response.status}`)

@@ -1,4 +1,8 @@
+import { getModelCapabilities } from '../lib/modelCapabilities.js'
+
 export default function ModelSelect({ models, value, loading, onChange, onRefresh }) {
+  const capabilities = value ? getModelCapabilities(value) : []
+
   return (
     <label>
       Model
@@ -25,6 +29,14 @@ export default function ModelSelect({ models, value, loading, onChange, onRefres
           Refresh
         </button>
       </div>
+
+      {capabilities.length > 0 && (
+        <div className="model-badges">
+          {capabilities.map(capability => (
+            <span key={capability}>{capability}</span>
+          ))}
+        </div>
+      )}
     </label>
   )
 }
