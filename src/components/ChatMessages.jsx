@@ -43,24 +43,25 @@ function highlightSearchText(container, search) {
     return
   }
 
-  const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT, {
-    acceptNode(node) {
-      const parent = node.parentElement
-
-      if (!node.nodeValue || parent?.closest('button')) {
-        return NodeFilter.FILTER_REJECT
-      }
-
-      return node.nodeValue.toLowerCase().includes(query.toLowerCase())
-        ? NodeFilter.FILTER_ACCEPT
-        : NodeFilter.FILTER_REJECT
-    }
-  })
   const nodes = []
 
-  while (walker.nextNode()) {
-    nodes.push(walker.currentNode)
-  }
+  container.querySelectorAll('.message-searchable').forEach(searchable => {
+    const walker = document.createTreeWalker(searchable, NodeFilter.SHOW_TEXT, {
+      acceptNode(node) {
+        if (!node.nodeValue) {
+          return NodeFilter.FILTER_REJECT
+        }
+
+        return node.nodeValue.toLowerCase().includes(query.toLowerCase())
+          ? NodeFilter.FILTER_ACCEPT
+          : NodeFilter.FILTER_REJECT
+      }
+    })
+
+    while (walker.nextNode()) {
+      nodes.push(walker.currentNode)
+    }
+  })
 
   nodes.forEach(node => {
     const text = node.nodeValue
@@ -176,9 +177,11 @@ export default function ChatMessages({ messages, loading, search, onEditMessage,
           </div>
 
           {message.role === 'assistant' ? (
-            <MarkdownResult content={message.content || (loading ? 'Thinking...' : '')} />
+            <div className="message-searchable">
+              <MarkdownResult content={message.content || (loading ? 'Thinking...' : '')} />
+            </div>
           ) : (
-            <>
+            <div className="message-searchable">
               <p>{message.content}</p>
               {message.attachments?.length > 0 && (
                 <div className="message-attachments">
@@ -189,7 +192,7 @@ export default function ChatMessages({ messages, loading, search, onEditMessage,
                   ))}
                 </div>
               )}
-            </>
+            </div>
           )}
         </article>
       ))}

@@ -82,6 +82,31 @@ function getAttachmentImages(attachments) {
     .filter(Boolean)
 }
 
+function countSearchMatches(text, search) {
+  const query = search.trim().toLowerCase()
+
+  if (!query) {
+    return 0
+  }
+
+  let count = 0
+  let index = 0
+  const lowerText = text.toLowerCase()
+
+  while (index < lowerText.length) {
+    const matchIndex = lowerText.indexOf(query, index)
+
+    if (matchIndex === -1) {
+      break
+    }
+
+    count += 1
+    index = matchIndex + query.length
+  }
+
+  return count
+}
+
 export default function OllamaChat() {
   const [models, setModels] = useState([])
   const [model, setModel] = useState('')
@@ -118,13 +143,13 @@ export default function OllamaChat() {
       return 0
     }
 
-    return (activeSession?.messages ?? []).filter(message => {
+    return (activeSession?.messages ?? []).reduce((count, message) => {
       const attachmentText = (message.attachments ?? [])
         .map(attachment => attachment.name)
         .join(' ')
 
-      return `${message.content} ${attachmentText}`.toLowerCase().includes(query)
-    }).length
+      return count + countSearchMatches(`${message.content} ${attachmentText}`, query)
+    }, 0)
   }, [activeSession?.messages, search])
 
   const composerWarning = useMemo(() => {
