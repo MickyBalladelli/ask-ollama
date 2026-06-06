@@ -2,7 +2,7 @@ import AttachFileIcon from '@mui/icons-material/AttachFile'
 import KeyboardVoiceIcon from '@mui/icons-material/KeyboardVoice'
 import SendIcon from '@mui/icons-material/Send'
 import StopIcon from '@mui/icons-material/Stop'
-import { FormControl, IconButton, InputLabel, MenuItem, Select, TextField, Tooltip } from '@mui/material'
+import { FormControl, IconButton, InputLabel, LinearProgress, MenuItem, Select, TextField, Tooltip, Typography } from '@mui/material'
 import { useEffect, useRef, useState } from 'react'
 import AttachmentList from './AttachmentList.jsx'
 import PromptTemplates from './PromptTemplates.jsx'
@@ -51,6 +51,7 @@ export default function ChatComposer({
   onSubmit,
   onCancel,
   warning,
+  contextSize = 0,
   voiceSettings = {}
 }) {
   const fileInputRef = useRef(null)
@@ -62,6 +63,7 @@ export default function ChatComposer({
   const dictationBaseRef = useRef('')
 
   const hasBigAttachment = attachments.some(attachment => (attachment.content?.length ?? 0) > bigAttachmentChars)
+  const contextPercent = Math.min(100, Math.round(contextSize / bigAttachmentChars * 100))
 
   function handleKeyDown(event) {
     if (event.key === 'Enter' && !event.shiftKey) {
@@ -216,6 +218,14 @@ export default function ChatComposer({
         {fileError && <p className="file-error">{fileError}</p>}
         {warning && <p className="file-warning">{warning}</p>}
         {hasBigAttachment && <p className="file-warning">Big file. Model may forget far text.</p>}
+        {(value || attachments.length > 0) && (
+          <div className="context-meter">
+            <LinearProgress variant="determinate" value={contextPercent} color={contextPercent > 80 ? 'warning' : 'primary'} />
+            <Typography color="text.secondary" variant="caption">
+              Context estimate {contextPercent}%
+            </Typography>
+          </div>
+        )}
 
         <TextField
           aria-label="Message"

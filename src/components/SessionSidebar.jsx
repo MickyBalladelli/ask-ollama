@@ -4,6 +4,38 @@ import ModelSelect from './ModelSelect.jsx'
 import SessionRow from './SessionRow.jsx'
 import logoUrl from '../images/ollama.png'
 
+function getGroupName(timestamp) {
+  const date = new Date(timestamp ?? Date.now())
+  const today = new Date()
+  const yesterday = new Date()
+
+  yesterday.setDate(today.getDate() - 1)
+
+  if (date.toDateString() === today.toDateString()) {
+    return 'Today'
+  }
+
+  if (date.toDateString() === yesterday.toDateString()) {
+    return 'Yesterday'
+  }
+
+  return 'Older'
+}
+
+function groupSessions(sessions) {
+  return sessions.reduce((groups, session) => {
+    const groupName = session.pinned ? 'Pinned' : getGroupName(session.updatedAt)
+    const group = groups.find(currentGroup => currentGroup.name === groupName)
+
+    if (group) {
+      group.sessions.push(session)
+      return groups
+    }
+
+    return [...groups, { name: groupName, sessions: [session] }]
+  }, [])
+}
+
 export default function SessionSidebar({
   sessions,
   activeSessionId,
@@ -18,6 +50,8 @@ export default function SessionSidebar({
   onModelChange,
   onRefreshModels
 }) {
+  const groups = groupSessions(sessions)
+
   return (
     <aside className="session-sidebar">
       <div className="app-title">
@@ -48,16 +82,21 @@ export default function SessionSidebar({
       </div>
 
       <nav className="session-list" aria-label="Saved discussions">
-        {sessions.map(session => (
-          <SessionRow
-            key={session.id}
-            session={session}
-            active={session.id === activeSessionId}
-            onSelect={onSelectSession}
-            onRename={onRenameSession}
-            onPin={onPinSession}
-            onDelete={onDeleteSession}
-          />
+        {groups.map(group => (
+          <div className="session-group" key={group.name}>
+            <p>{group.name}</p>
+            {group.sessions.map(session => (
+              <SessionRow
+                key={session.id}
+                session={session}
+                active={session.id === activeSessionId}
+                onSelect={onSelectSession}
+                onRename={onRenameSession}
+                onPin={onPinSession}
+                onDelete={onDeleteSession}
+              />
+            ))}
+          </div>
         ))}
       </nav>
     </aside>

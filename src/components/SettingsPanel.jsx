@@ -13,10 +13,13 @@ import {
   Typography
 } from '@mui/material'
 import { useEffect, useRef, useState } from 'react'
+import ModelDetails from './ModelDetails.jsx'
 
 export default function SettingsPanel({
   open,
   models,
+  model,
+  modelInfo,
   settings,
   onSettingsChange,
   onExportAll,
@@ -174,6 +177,8 @@ export default function SettingsPanel({
           </IconButton>
         </Tooltip>
       </div>
+
+      <ModelDetails model={model} modelInfo={modelInfo} />
 
       <input
         ref={inputRef}

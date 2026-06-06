@@ -5,7 +5,7 @@ import GraphicEqIcon from '@mui/icons-material/GraphicEq'
 import ReplayIcon from '@mui/icons-material/Replay'
 import StopIcon from '@mui/icons-material/Stop'
 import VolumeUpIcon from '@mui/icons-material/VolumeUp'
-import { IconButton, Tooltip } from '@mui/material'
+import { Chip, IconButton, Stack, Tooltip, Typography } from '@mui/material'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import MarkdownResult from './MarkdownResult.jsx'
 import { speakText, stopSpeaking } from '../lib/speech.js'
@@ -105,6 +105,8 @@ export default function ChatMessages({
   search,
   searchJump,
   voiceSettings = {},
+  onStarter,
+  onPreviewAttachment,
   onEditMessage,
   onRegenerate,
   onCancel
@@ -218,7 +220,12 @@ export default function ChatMessages({
   if (messages.length === 0) {
     return (
       <section className="messages empty-chat" ref={messagesRef}>
-        
+        <Typography color="text.secondary" variant="body2">Start with one</Typography>
+        <Stack direction="row" flexWrap="wrap" gap={1} justifyContent="center">
+          {['Explain image', 'Summarize PDF', 'Write code', 'Review code'].map(starter => (
+            <Chip key={starter} label={starter} color="primary" variant="outlined" onClick={() => onStarter(starter)} />
+          ))}
+        </Stack>
       </section>
     )
   }
@@ -288,10 +295,15 @@ export default function ChatMessages({
               {message.attachments?.length > 0 && (
                 <div className="message-attachments">
                   {message.attachments.map(attachment => (
-                    <div className="message-attachment" key={attachment.id}>
+                    <button
+                      type="button"
+                      className="message-attachment"
+                      key={attachment.id}
+                      onClick={() => onPreviewAttachment(attachment)}
+                    >
                       {attachment.previewUrl && <img src={attachment.previewUrl} alt={attachment.name} />}
                       <span>{attachment.name} ({formatSize(attachment.size)})</span>
-                    </div>
+                    </button>
                   ))}
                 </div>
               )}

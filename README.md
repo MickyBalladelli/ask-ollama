@@ -8,18 +8,24 @@ Ask Ollama is a local chat app for Ollama. It has a React + Material UI interfac
 - Stream answers as Ollama writes them.
 - Render answers as Markdown, including code blocks, tables, links, and lists.
 - Keep multiple saved chats in the left sidebar.
+- Resize the left sidebar.
+- Group chats by Pinned, Today, Yesterday, and Older.
 - Create, switch, and delete chats.
+- Undo deleted chats from toast.
 - Save chats in browser local storage.
 - Remember the selected model per chat.
 - Show model badges for text, vision, code, and large-context guesses.
 - Refresh installed models from Ollama.
 - Use a system prompt to guide future answers.
+- Save the system prompt per chat.
+- Open a command palette for common actions.
 - Search inside the current chat.
 - Jump to next and previous search match.
 - Highlight matching search text.
 - Export a chat as Markdown.
 - Export image previews in Markdown.
 - Clear the current chat.
+- Use starter chips from the empty chat view.
 - Edit a user message into a new branch chat.
 - Regenerate the latest answer.
 - Copy assistant answers.
@@ -44,6 +50,7 @@ Ask Ollama is a local chat app for Ollama. It has a React + Material UI interfac
 - Drag and drop files anywhere in the app.
 - Show image thumbnails in the attachment list.
 - Show attached image previews in chat messages.
+- Click image attachments in messages to preview them.
 - Show attachment type and size.
 - Warn when a file is large and may exceed model memory.
 - Warn when a PDF has no extractable text.
@@ -55,6 +62,8 @@ Ask Ollama is a local chat app for Ollama. It has a React + Material UI interfac
 - Use prompt templates.
 - Use keyboard shortcuts: Cmd/Ctrl+K search, Cmd/Ctrl+N new chat, Esc cancel.
 - Open settings for theme, font size, default model, backup, and import.
+- See model details from Ollama metadata.
+- See a context-size estimate before sending.
 - Switch between dark and light theme.
 - Back up and restore all chats as JSON.
 - Use `src/images/ollama.png` as the app logo, favicon, window icon, and packaged app icon.

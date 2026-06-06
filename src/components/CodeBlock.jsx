@@ -6,6 +6,7 @@ import { useState } from 'react'
 export default function CodeBlock({ children, className }) {
   const [copied, setCopied] = useState(false)
   const text = String(children ?? '').replace(/\n$/, '')
+  const language = className?.replace('language-', '') || 'code'
 
   async function copyCode() {
     await navigator.clipboard.writeText(text)
@@ -15,6 +16,7 @@ export default function CodeBlock({ children, className }) {
 
   return (
     <div className="code-block">
+      <span className="code-language">{language}</span>
       <Tooltip title={copied ? 'Copied' : 'Copy code'}>
         <IconButton color="primary" onClick={copyCode} aria-label={copied ? 'Copied' : 'Copy code'}>
           {copied ? <DoneIcon /> : <ContentCopyIcon />}

@@ -1,8 +1,9 @@
-import { ThemeProvider } from '@mui/material'
+import { Button, Dialog, DialogContent, DialogTitle, Snackbar, ThemeProvider } from '@mui/material'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import ChatComposer from './ChatComposer.jsx'
 import ChatMessages from './ChatMessages.jsx'
 import ChatTools from './ChatTools.jsx'
+import CommandPalette from './CommandPalette.jsx'
 import SettingsPanel from './SettingsPanel.jsx'
 import SessionSidebar from './SessionSidebar.jsx'
 import { generateOllamaAnswer, getOllamaModelInfo, getOllamaModels } from '../lib/ollamaApi.js'
@@ -175,6 +176,11 @@ export default function OllamaChat() {
   const [modelInfo, setModelInfo] = useState(null)
   const [status, setStatus] = useState('')
   const [searchJump, setSearchJump] = useState(0)
+  const [paletteOpen, setPaletteOpen] = useState(false)
+  const [toast, setToast] = useState('')
+  const [deletedSession, setDeletedSession] = useState(null)
+  const [sidebarWidth, setSidebarWidth] = useState(() => Number(localStorage.getItem('ask-ollama-sidebar-width')) || 300)
+  const [previewAttachment, setPreviewAttachment] = useState(null)
   const activeRequestRef = useRef(null)
 
   const activeSession = useMemo(
@@ -186,6 +192,11 @@ export default function OllamaChat() {
     [settings.theme, settings.fontSize]
   )
   const sortedSessions = useMemo(() => sortSessions(sessions), [sessions])
+  const contextSize = useMemo(() => {
+    const attachmentChars = attachments.reduce((count, attachment) => count + (attachment.content?.length ?? 0), 0)
+
+    return draft.length + attachmentChars
+  }, [attachments, draft])
 
   useEffect(() => {
     localStorage.setItem(sessionsStorageKey, JSON.stringify(sessions))
@@ -198,10 +209,29 @@ export default function OllamaChat() {
   }, [settings])
 
   useEffect(() => {
+    localStorage.setItem('ask-ollama-sidebar-width', String(sidebarWidth))
+  }, [sidebarWidth])
+
+  useEffect(() => {
     if (activeSession?.model && activeSession.model !== model) {
       setModel(activeSession.model)
     }
+    setSystemPrompt(activeSession?.systemPrompt ?? '')
   }, [activeSession?.id])
+
+  function changeSystemPrompt(nextPrompt) {
+    setSystemPrompt(nextPrompt)
+
+    if (!activeSession) {
+      return
+    }
+
+    updateActiveSession(session => ({
+      ...session,
+      systemPrompt: nextPrompt,
+      updatedAt: Date.now()
+    }))
+  }
 
   useEffect(() => {
     let alive = true
@@ -246,12 +276,67 @@ export default function OllamaChat() {
 
     return ''
   }, [attachments, model, modelInfo])
+  const commandActions = useMemo(() => [
+    {
+      label: 'New chat',
+      description: 'Create fresh chat',
+      run: startSession
+    },
+    {
+      label: 'Focus search',
+      description: 'Search inside current chat',
+      run: () => document.querySelector('[aria-label="Search chat"]')?.focus()
+    },
+    {
+      label: 'Export chat',
+      description: 'Download current chat markdown',
+      run: exportChat
+    },
+    {
+      label: 'Toggle settings',
+      description: 'Show or hide settings panel',
+      run: () => setSettingsOpen(current => !current)
+    },
+    {
+      label: 'Refresh models',
+      description: 'Reload Ollama model list',
+      run: loadModels
+    }
+  ], [activeSession, sessions, settings, model])
+
+  function applyStarter(starter) {
+    const prompts = {
+      'Explain image': 'Explain this image. Mention important objects, text, layout, and likely meaning.',
+      'Summarize PDF': 'Summarize this document. Include key points, decisions, dates, names, and numbers.',
+      'Write code': 'Write code for this. Keep it simple and explain how to run it.',
+      'Review code': 'Review this code. Lead with bugs and risks, then suggest small fixes.'
+    }
+
+    setDraft(prompts[starter] ?? starter)
+  }
+
+  function startResizeSidebar(event) {
+    const startX = event.clientX
+    const startWidth = sidebarWidth
+
+    function handleMove(moveEvent) {
+      setSidebarWidth(Math.min(420, Math.max(240, startWidth + moveEvent.clientX - startX)))
+    }
+
+    function handleUp() {
+      window.removeEventListener('mousemove', handleMove)
+      window.removeEventListener('mouseup', handleUp)
+    }
+
+    window.addEventListener('mousemove', handleMove)
+    window.addEventListener('mouseup', handleUp)
+  }
 
   useEffect(() => {
     function handleShortcut(event) {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
         event.preventDefault()
-        document.querySelector('[aria-label="Search chat"]')?.focus()
+        setPaletteOpen(true)
       }
 
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'n') {
@@ -268,6 +353,10 @@ export default function OllamaChat() {
 
     return () => window.removeEventListener('keydown', handleShortcut)
   }, [loading, sessions, activeSessionId])
+
+  function showToast(message) {
+    setToast(message)
+  }
 
   async function loadModels() {
     setModelsLoading(true)
@@ -346,10 +435,11 @@ export default function OllamaChat() {
   function deleteSession(sessionId) {
     const session = sessions.find(currentSession => currentSession.id === sessionId)
 
-    if (session && !window.confirm(`Delete "${session.title}"?`)) {
+    if (!session) {
       return
     }
 
+    setDeletedSession(session)
     setSessions(currentSessions => {
       const nextSessions = currentSessions.filter(session => session.id !== sessionId)
       const fallbackSession = nextSessions[0] ?? createSession()
@@ -361,6 +451,18 @@ export default function OllamaChat() {
       return nextSessions.length > 0 ? nextSessions : [fallbackSession]
     })
     setError('')
+    showToast('Chat deleted')
+  }
+
+  function undoDeleteSession() {
+    if (!deletedSession) {
+      return
+    }
+
+    setSessions(currentSessions => [deletedSession, ...currentSessions])
+    setActiveSessionId(deletedSession.id)
+    setDeletedSession(null)
+    showToast('Chat restored')
   }
 
   function renameSession(sessionId) {
@@ -382,6 +484,7 @@ export default function OllamaChat() {
         updatedAt: Date.now()
       }
     }))
+    showToast('Chat renamed')
   }
 
   function pinSession(sessionId) {
@@ -412,6 +515,7 @@ export default function OllamaChat() {
     setDraft('')
     setAttachments([])
     setError('')
+    showToast('Chat cleared')
   }
 
   function exportChat() {
@@ -439,6 +543,7 @@ export default function OllamaChat() {
     link.download = `${activeSession.title || 'chat'}.md`
     link.click()
     URL.revokeObjectURL(url)
+    showToast('Chat exported')
   }
 
   function exportAllChats() {
@@ -456,6 +561,7 @@ export default function OllamaChat() {
     link.download = 'ask-ollama-backup.json'
     link.click()
     URL.revokeObjectURL(url)
+    showToast('Backup exported')
   }
 
   async function importAllChats(file) {
@@ -475,6 +581,7 @@ export default function OllamaChat() {
       })
       setActiveSessionId(importedSessions[0].id)
       setError('')
+      showToast('Backup imported')
     } catch {
       setError('Backup file not good.')
     }
@@ -493,6 +600,7 @@ export default function OllamaChat() {
     setAttachments([])
     setSessions(currentSessions => [branchSession, ...currentSessions])
     setActiveSessionId(branchSession.id)
+    showToast('Branch created')
   }
 
   function setAssistantContent(sessionId, assistantMessageId, content) {
@@ -734,7 +842,7 @@ export default function OllamaChat() {
 
   return (
     <ThemeProvider theme={muiTheme}>
-      <main className="app-shell">
+      <main className="app-shell" style={{ gridTemplateColumns: `${sidebarWidth}px minmax(0, 1fr)` }}>
       <SessionSidebar
         sessions={sortedSessions}
         activeSessionId={activeSession?.id}
@@ -749,6 +857,13 @@ export default function OllamaChat() {
         onModelChange={changeModel}
         onRefreshModels={loadModels}
       />
+      <button
+        type="button"
+        className="sidebar-resizer"
+        style={{ left: sidebarWidth - 3 }}
+        onMouseDown={startResizeSidebar}
+        aria-label="Resize sidebar"
+      />
 
       <section className="chat-panel">
         {error && <p className="error-text">{error}</p>}
@@ -762,7 +877,7 @@ export default function OllamaChat() {
           status={status}
           hasMessages={(activeSession?.messages ?? []).length > 0}
           onSearchChange={setSearch}
-          onSystemPromptChange={setSystemPrompt}
+          onSystemPromptChange={changeSystemPrompt}
           onSearchNext={() => setSearchJump(current => current + 1)}
           onSearchPrevious={() => setSearchJump(current => current - 1)}
           onExport={exportChat}
@@ -773,6 +888,8 @@ export default function OllamaChat() {
         <SettingsPanel
           open={settingsOpen}
           models={models}
+          model={model}
+          modelInfo={modelInfo}
           settings={settings}
           onSettingsChange={setSettings}
           onExportAll={exportAllChats}
@@ -785,6 +902,8 @@ export default function OllamaChat() {
           search={search}
           searchJump={searchJump}
           voiceSettings={settings}
+          onStarter={applyStarter}
+          onPreviewAttachment={setPreviewAttachment}
           onEditMessage={editMessage}
           onRegenerate={regenerateLastAnswer}
           onCancel={cancelRequest}
@@ -796,6 +915,7 @@ export default function OllamaChat() {
           loading={loading}
           disabled={modelsLoading || !model}
           warning={composerWarning}
+          contextSize={contextSize}
           voiceSettings={settings}
           onChange={setDraft}
           onAttachmentsChange={setAttachments}
@@ -803,6 +923,28 @@ export default function OllamaChat() {
           onCancel={cancelRequest}
         />
       </section>
+      <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} actions={commandActions} />
+      <Dialog open={Boolean(previewAttachment)} onClose={() => setPreviewAttachment(null)} fullWidth maxWidth="md">
+        <DialogTitle>{previewAttachment?.name}</DialogTitle>
+        <DialogContent>
+          {previewAttachment?.previewUrl ? (
+            <img className="attachment-preview-image" src={previewAttachment.previewUrl} alt={previewAttachment.name} />
+          ) : (
+            <p>No preview available.</p>
+          )}
+        </DialogContent>
+      </Dialog>
+      <Snackbar
+        open={Boolean(toast)}
+        autoHideDuration={3000}
+        message={toast}
+        onClose={() => setToast('')}
+        action={deletedSession ? (
+          <Button color="secondary" onClick={undoDeleteSession}>
+            Undo
+          </Button>
+        ) : null}
+      />
       </main>
     </ThemeProvider>
   )
