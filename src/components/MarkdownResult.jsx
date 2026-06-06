@@ -5,7 +5,7 @@ export default function MarkdownResult({ content }) {
   if (!content) {
     return (
       <div className="empty-state">
-        Ask Ollama. Markdown show here.
+        Ask Ollama a question to see the answer here.
       </div>
     )
   }

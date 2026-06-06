@@ -167,6 +167,10 @@ textarea {
   outline: none;
 }
 
+.file-input {
+  display: none;
+}
+
 input:focus,
 select:focus,
 textarea:focus {
@@ -222,6 +226,7 @@ select:disabled {
 
 .message {
   max-width: 880px;
+  min-width: 0;
   border: 1px solid rgba(148, 163, 184, 0.16);
   border-radius: 8px;
   padding: 14px 16px;
@@ -249,18 +254,41 @@ select:disabled {
 
 .message p {
   margin: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
   line-height: 1.6;
   white-space: pre-wrap;
 }
 
+.message-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.message-attachments span {
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 8px;
+  padding: 6px 8px;
+  color: #cbd5e1;
+  background: rgba(15, 18, 24, 0.5);
+  font-size: 0.84rem;
+}
+
 .chat-composer {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto auto;
   align-items: end;
   gap: 12px;
   padding: 18px 32px 28px;
   background: rgba(15, 18, 24, 0.92);
   border-top: 1px solid rgba(148, 163, 184, 0.16);
+}
+
+.composer-main {
+  display: grid;
+  gap: 8px;
 }
 
 .chat-composer textarea {
@@ -271,6 +299,56 @@ select:disabled {
 .chat-composer button {
   height: 54px;
   min-height: 0;
+}
+
+.attach-button {
+  color: #e2e8f0;
+  background: rgba(30, 41, 59, 0.82);
+  border: 1px solid rgba(148, 163, 184, 0.22);
+}
+
+.attachment-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.attachment-pill {
+  display: grid;
+  grid-template-columns: minmax(0, auto) auto auto;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 8px;
+  padding: 6px 6px 6px 10px;
+  color: #e2e8f0;
+  background: rgba(15, 18, 24, 0.78);
+}
+
+.attachment-pill span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.attachment-pill small {
+  color: #94a3b8;
+}
+
+.attachment-pill button {
+  height: 28px;
+  min-height: 0;
+  padding: 0 8px;
+  color: #e2e8f0;
+  background: rgba(30, 41, 59, 0.82);
+  font-size: 0.78rem;
+}
+
+.file-error {
+  margin: 0;
+  color: #fecaca;
+  font-size: 0.85rem;
 }
 
 .empty-state {

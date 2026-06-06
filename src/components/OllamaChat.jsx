@@ -5,6 +5,8 @@ import SessionSidebar from './SessionSidebar.jsx'
 import { generateOllamaAnswer, getOllamaModels } from '../lib/ollamaApi.js'
 
 const sessionsStorageKey = 'ask-ollama-sessions'
+const attachmentChunkSize = 12000
+const maxAttachmentChunks = 6
 
 function createSession() {
   return {
@@ -43,10 +45,101 @@ function loadSavedSessions() {
   return [createSession()]
 }
 
+function getReferenceChunks(text) {
+  const chunkCount = Math.ceil(text.length / attachmentChunkSize)
+  const chunks = Array.from({ length: chunkCount }, (_value, index) => {
+    const start = index * attachmentChunkSize
+
+    return text.slice(start, start + attachmentChunkSize)
+  })
+
+  if (chunks.length <= maxAttachmentChunks) {
+    return chunks
+  }
+
+  return Array.from({ length: maxAttachmentChunks }, (_value, index) => {
+    const sourceIndex = Math.floor(index * (chunks.length - 1) / (maxAttachmentChunks - 1))
+
+    return chunks[sourceIndex]
+  })
+}
+
+async function askForText(model, prompt) {
+  let answer = ''
+
+  await generateOllamaAnswer({
+    model,
+    prompt,
+    onChunk: chunk => {
+      answer += chunk
+    }
+  })
+
+  return answer.trim()
+}
+
+async function summarizeAttachment(model, attachment, onProgress) {
+  const chunks = getReferenceChunks(attachment.content)
+  const summaries = []
+
+  for (const [index, chunk] of chunks.entries()) {
+    onProgress(`Reading ${attachment.name}: part ${index + 1} of ${chunks.length}`)
+
+    const summary = await askForText(
+      model,
+      `Summarize this reference chunk for later question answering. Keep names, dates, numbers, decisions, requirements, and important details. Be concise.\n\nFile: ${attachment.name}\nChunk: ${index + 1} of ${chunks.length}\n\n${chunk}`
+    )
+
+    summaries.push(`Chunk ${index + 1}: ${summary}`)
+  }
+
+  if (summaries.length === 1) {
+    return summaries[0]
+  }
+
+  onProgress(`Merging notes from ${attachment.name}`)
+
+  return askForText(
+    model,
+    `Merge these chunk summaries into one useful reference summary. Preserve concrete facts, names, dates, numbers, requirements, and unresolved questions.\n\nFile: ${attachment.name}\n\n${summaries.join('\n\n')}`
+  )
+}
+
+async function summarizeAttachments(model, attachments, onProgress) {
+  const summaries = []
+
+  for (const [index, attachment] of attachments.entries()) {
+    onProgress(`Reading file ${index + 1} of ${attachments.length}`)
+
+    const summary = await summarizeAttachment(model, attachment, onProgress)
+
+    summaries.push({
+      id: attachment.id,
+      name: attachment.name,
+      type: attachment.type,
+      size: attachment.size,
+      summary
+    })
+  }
+
+  return summaries
+}
+
+function formatAttachmentSummaries(attachments) {
+  if (attachments.length === 0) {
+    return ''
+  }
+
+  return attachments
+    .map(attachment => `File: ${attachment.name}\nType: ${attachment.type || 'unknown'}\nSummary:\n${attachment.summary}`)
+    .join('\n\n---\n\n')
+}
+
 export default function OllamaChat() {
   const [models, setModels] = useState([])
   const [model, setModel] = useState('')
   const [draft, setDraft] = useState('')
+  const [attachments, setAttachments] = useState([])
   const [sessions, setSessions] = useState(loadSavedSessions)
   const [activeSessionId, setActiveSessionId] = useState(() => sessions[0].id)
   const [error, setError] = useState('')
@@ -107,6 +200,7 @@ export default function OllamaChat() {
     setSessions(currentSessions => [nextSession, ...currentSessions])
     setActiveSessionId(nextSession.id)
     setDraft('')
+    setAttachments([])
     setError('')
   }
 
@@ -129,36 +223,105 @@ export default function OllamaChat() {
 
     const trimmedDraft = draft.trim()
 
-    if (!trimmedDraft || !model || loading || !activeSession) {
+    if ((!trimmedDraft && attachments.length === 0) || !model || loading || !activeSession) {
       return
     }
 
+    const currentAttachments = attachments
     const userMessage = {
       id: crypto.randomUUID(),
       role: 'user',
-      content: trimmedDraft
+      content: trimmedDraft || 'Process attached files.',
+      attachments: currentAttachments.map(attachment => ({
+        id: attachment.id,
+        name: attachment.name,
+        type: attachment.type,
+        size: attachment.size
+      }))
     }
     const assistantMessage = {
       id: crypto.randomUUID(),
       role: 'assistant',
-      content: ''
+      content: currentAttachments.length > 0 ? 'Reading file...' : ''
     }
-    const messagesForOllama = [...activeSession.messages, userMessage]
 
     setDraft('')
+    setAttachments([])
     setError('')
     setLoading(true)
     updateActiveSession(session => ({
       ...session,
-      title: session.messages.length === 0 ? summarizeDiscussion(trimmedDraft) : session.title,
-      messages: [...messagesForOllama, assistantMessage],
+      title: session.messages.length === 0 ? summarizeDiscussion(trimmedDraft || currentAttachments[0]?.name || '') : session.title,
+      messages: [...session.messages, userMessage, assistantMessage],
       updatedAt: Date.now()
     }))
 
     try {
+      function setAssistantContent(content) {
+        setSessions(currentSessions => currentSessions.map(session => {
+          if (session.id !== activeSession.id) {
+            return session
+          }
+
+          return {
+            ...session,
+            messages: session.messages.map(message => {
+              if (message.id !== assistantMessage.id) {
+                return message
+              }
+
+              return {
+                ...message,
+                content
+              }
+            }),
+            updatedAt: Date.now()
+          }
+        }))
+      }
+
+      const summarizedAttachments = await summarizeAttachments(model, currentAttachments, setAssistantContent)
+      const attachmentText = formatAttachmentSummaries(summarizedAttachments)
+      const promptContent = attachmentText
+        ? `${trimmedDraft || 'Process attached files.'}\n\nReference summaries:\n\n${attachmentText}`
+        : trimmedDraft
+      const promptUserMessage = {
+        ...userMessage,
+        promptContent,
+        attachments: summarizedAttachments.map(attachment => ({
+          id: attachment.id,
+          name: attachment.name,
+          type: attachment.type,
+          size: attachment.size
+        }))
+      }
+      const messagesForOllama = [...activeSession.messages, promptUserMessage]
+
+      setSessions(currentSessions => currentSessions.map(session => {
+        if (session.id !== activeSession.id) {
+          return session
+        }
+
+        return {
+          ...session,
+          messages: session.messages.map(message => {
+            if (message.id !== userMessage.id) {
+              return message
+            }
+
+            return promptUserMessage
+          }),
+          updatedAt: Date.now()
+        }
+      }))
+      setAssistantContent('')
+
       await generateOllamaAnswer({
         model,
-        prompt: buildPrompt(messagesForOllama),
+        prompt: buildPrompt(messagesForOllama.map(message => ({
+          ...message,
+          content: message.promptContent ?? message.content
+        }))),
         onChunk: chunk => {
           setSessions(currentSessions => currentSessions.map(session => {
             if (session.id !== activeSession.id) {
@@ -211,9 +374,11 @@ export default function OllamaChat() {
 
         <ChatComposer
           value={draft}
+          attachments={attachments}
           loading={loading}
           disabled={modelsLoading || !model}
           onChange={setDraft}
+          onAttachmentsChange={setAttachments}
           onSubmit={askOllama}
         />
       </section>

@@ -1,10 +1,22 @@
 import MarkdownResult from './MarkdownResult.jsx'
 
+function formatSize(size) {
+  if (size < 1024) {
+    return `${size} B`
+  }
+
+  if (size < 1024 * 1024) {
+    return `${Math.round(size / 1024)} KB`
+  }
+
+  return `${Math.round(size / 1024 / 1024)} MB`
+}
+
 export default function ChatMessages({ messages, loading }) {
   if (messages.length === 0) {
     return (
       <section className="messages empty-chat">
-        Ask Ollama. Chat stay here.
+        
       </section>
     )
   }
@@ -19,7 +31,18 @@ export default function ChatMessages({ messages, loading }) {
           {message.role === 'assistant' ? (
             <MarkdownResult content={message.content || (loading ? 'Thinking...' : '')} />
           ) : (
-            <p>{message.content}</p>
+            <>
+              <p>{message.content}</p>
+              {message.attachments?.length > 0 && (
+                <div className="message-attachments">
+                  {message.attachments.map(attachment => (
+                    <span key={attachment.id}>
+                      {attachment.name} ({formatSize(attachment.size)})
+                    </span>
+                  ))}
+                </div>
+              )}
+            </>
           )}
         </article>
       ))}
