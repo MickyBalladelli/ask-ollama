@@ -90,7 +90,7 @@ function highlightSearchText(container, search) {
   })
 }
 
-export default function ChatMessages({ messages, loading, search, onEditMessage, onRegenerate }) {
+export default function ChatMessages({ messages, loading, search, searchJump, onEditMessage, onRegenerate, onCancel }) {
   const messagesRef = useRef(null)
   const autoScrollRef = useRef(true)
   const [copiedId, setCopiedId] = useState('')
@@ -118,6 +118,25 @@ export default function ChatMessages({ messages, loading, search, onEditMessage,
 
     highlightSearchText(messagesRef.current, search)
   }, [search, scrollKey])
+
+  useEffect(() => {
+    const highlights = messagesRef.current?.querySelectorAll('mark.search-highlight') ?? []
+
+    highlights.forEach(highlight => highlight.classList.remove('active'))
+
+    if (highlights.length === 0) {
+      return
+    }
+
+    const index = ((searchJump % highlights.length) + highlights.length) % highlights.length
+    const activeHighlight = highlights[index]
+
+    activeHighlight.classList.add('active')
+    activeHighlight.scrollIntoView({
+      block: 'center',
+      behavior: 'smooth'
+    })
+  }, [searchJump, search, scrollKey])
 
   function handleScroll() {
     const element = messagesRef.current
@@ -173,6 +192,12 @@ export default function ChatMessages({ messages, loading, search, onEditMessage,
                   Again
                 </button>
               )}
+
+              {message.id === lastAssistantId && loading && (
+                <button type="button" onClick={onCancel}>
+                  Stop
+                </button>
+              )}
             </div>
           </div>
 
@@ -186,12 +211,19 @@ export default function ChatMessages({ messages, loading, search, onEditMessage,
               {message.attachments?.length > 0 && (
                 <div className="message-attachments">
                   {message.attachments.map(attachment => (
-                    <span key={attachment.id}>
-                      {attachment.name} ({formatSize(attachment.size)})
-                    </span>
+                    <div className="message-attachment" key={attachment.id}>
+                      {attachment.previewUrl && <img src={attachment.previewUrl} alt={attachment.name} />}
+                      <span>{attachment.name} ({formatSize(attachment.size)})</span>
+                    </div>
                   ))}
                 </div>
               )}
+            </div>
+          )}
+
+          {message.stats && (
+            <div className="message-stats">
+              {message.stats.words} words - {message.stats.seconds}s
             </div>
           )}
         </article>

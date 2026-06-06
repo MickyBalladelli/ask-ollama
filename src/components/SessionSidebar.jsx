@@ -1,4 +1,5 @@
 import ModelSelect from './ModelSelect.jsx'
+import SessionRow from './SessionRow.jsx'
 import logoUrl from '../images/ollama.png'
 
 export default function SessionSidebar({
@@ -10,6 +11,8 @@ export default function SessionSidebar({
   onSelectSession,
   onNewSession,
   onDeleteSession,
+  onRenameSession,
+  onPinSession,
   onModelChange,
   onRefreshModels
 }) {
@@ -42,24 +45,15 @@ export default function SessionSidebar({
 
       <nav className="session-list" aria-label="Saved discussions">
         {sessions.map(session => (
-          <div className="session-row" key={session.id}>
-            <button
-              type="button"
-              className={session.id === activeSessionId ? 'session-button active' : 'session-button'}
-              onClick={() => onSelectSession(session.id)}
-            >
-              {session.title}
-            </button>
-
-            <button
-              type="button"
-              className="delete-session-button"
-              onClick={() => onDeleteSession(session.id)}
-              aria-label={`Delete ${session.title}`}
-            >
-              Delete
-            </button>
-          </div>
+          <SessionRow
+            key={session.id}
+            session={session}
+            active={session.id === activeSessionId}
+            onSelect={onSelectSession}
+            onRename={onRenameSession}
+            onPin={onPinSession}
+            onDelete={onDeleteSession}
+          />
         ))}
       </nav>
     </aside>

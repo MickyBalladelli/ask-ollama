@@ -1,12 +1,13 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import AttachmentList from './AttachmentList.jsx'
+import PromptTemplates from './PromptTemplates.jsx'
 import { extractPdfText } from '../lib/pdfText.js'
 import { isImageFile, readFileAsDataUrl } from '../lib/files.js'
 
 const maxFileBytes = 30 * 1024 * 1024
 const bigAttachmentChars = 120000
 
-async function readFileAttachment(file) {
+async function readFileAttachment(file, fileMode) {
   if (isImageFile(file)) {
     const dataUrl = await readFileAsDataUrl(file)
 
@@ -23,6 +24,12 @@ async function readFileAttachment(file) {
 
   if (file.name.toLowerCase().endsWith('.pdf') && !content.trim()) {
     throw new Error('empty-pdf')
+  }
+
+  if (fileMode === 'first-part' && content.length > bigAttachmentChars) {
+    return {
+      content: `${content.slice(0, bigAttachmentChars)}\n\n[Only first part attached.]`
+    }
   }
 
   return { content }
@@ -42,6 +49,7 @@ export default function ChatComposer({
   const fileInputRef = useRef(null)
   const [fileError, setFileError] = useState('')
   const [dragging, setDragging] = useState(false)
+  const [fileMode, setFileMode] = useState('full')
 
   const hasBigAttachment = attachments.some(attachment => (attachment.content?.length ?? 0) > bigAttachmentChars)
 
@@ -65,7 +73,7 @@ export default function ChatComposer({
       }
 
       try {
-        const attachment = await readFileAttachment(file)
+        const attachment = await readFileAttachment(file, fileMode)
 
         nextAttachments.push({
           id: crypto.randomUUID(),
@@ -90,6 +98,7 @@ export default function ChatComposer({
 
   function handleDrop(event) {
     event.preventDefault()
+    event.stopPropagation()
     setDragging(false)
 
     if (!loading) {
@@ -108,6 +117,30 @@ export default function ChatComposer({
   function handleBrowse() {
     fileInputRef.current?.click()
   }
+
+  useEffect(() => {
+    function handleWindowDragOver(event) {
+      event.preventDefault()
+      setDragging(true)
+    }
+
+    function handleWindowDrop(event) {
+      event.preventDefault()
+      setDragging(false)
+
+      if (!loading) {
+        addFiles(event.dataTransfer.files)
+      }
+    }
+
+    window.addEventListener('dragover', handleWindowDragOver)
+    window.addEventListener('drop', handleWindowDrop)
+
+    return () => {
+      window.removeEventListener('dragover', handleWindowDragOver)
+      window.removeEventListener('drop', handleWindowDrop)
+    }
+  }, [loading, attachments])
 
   return (
     <form
@@ -148,6 +181,17 @@ export default function ChatComposer({
           event.target.value = ''
         }}
       />
+
+      <PromptTemplates onApply={template => onChange(value ? `${value}\n\n${template}` : template)} />
+
+      <select
+        aria-label="File mode"
+        value={fileMode}
+        onChange={event => setFileMode(event.target.value)}
+      >
+        <option value="full">Full file</option>
+        <option value="first-part">First part</option>
+      </select>
 
       <button className="attach-button" type="button" disabled={loading} onClick={handleBrowse}>
         File

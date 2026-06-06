@@ -2,10 +2,19 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import ChatComposer from './ChatComposer.jsx'
 import ChatMessages from './ChatMessages.jsx'
 import ChatTools from './ChatTools.jsx'
+import SettingsPanel from './SettingsPanel.jsx'
 import SessionSidebar from './SessionSidebar.jsx'
-import { generateOllamaAnswer, getOllamaModels } from '../lib/ollamaApi.js'
+import { generateOllamaAnswer, getOllamaModelInfo, getOllamaModels } from '../lib/ollamaApi.js'
 
 const sessionsStorageKey = 'ask-ollama-sessions'
+const settingsStorageKey = 'ask-ollama-settings'
+const largeContextChars = 120000
+
+const defaultSettings = {
+  theme: 'dark',
+  fontSize: 'normal',
+  defaultModel: ''
+}
 
 function createSession() {
   return {
@@ -15,6 +24,27 @@ function createSession() {
     createdAt: Date.now(),
     updatedAt: Date.now()
   }
+}
+
+function loadSavedSettings() {
+  try {
+    return {
+      ...defaultSettings,
+      ...JSON.parse(localStorage.getItem(settingsStorageKey) || '{}')
+    }
+  } catch {
+    return defaultSettings
+  }
+}
+
+function sortSessions(sessions) {
+  return [...sessions].sort((first, second) => {
+    if (Boolean(first.pinned) !== Boolean(second.pinned)) {
+      return first.pinned ? -1 : 1
+    }
+
+    return (second.updatedAt ?? 0) - (first.updatedAt ?? 0)
+  })
 }
 
 function createSessionTitle(text) {
@@ -44,6 +74,19 @@ function isVisionModel(modelName) {
   const name = modelName.toLowerCase()
 
   return ['vision', 'llava', 'bakllava', 'moondream', 'minicpm-v', 'gemma3'].some(part => name.includes(part))
+}
+
+function modelInfoHasVision(modelInfo) {
+  const capabilityText = [
+    ...(modelInfo?.capabilities ?? []),
+    modelInfo?.details?.family,
+    modelInfo?.model_info?.['general.architecture']
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase()
+
+  return ['vision', 'clip', 'multimodal', 'llava'].some(part => capabilityText.includes(part))
 }
 
 function loadSavedSessions() {
@@ -119,22 +162,48 @@ export default function OllamaChat() {
   const [modelsLoading, setModelsLoading] = useState(false)
   const [search, setSearch] = useState('')
   const [systemPrompt, setSystemPrompt] = useState('')
+  const [settings, setSettings] = useState(loadSavedSettings)
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const [modelInfo, setModelInfo] = useState(null)
+  const [status, setStatus] = useState('')
+  const [searchJump, setSearchJump] = useState(0)
   const activeRequestRef = useRef(null)
 
   const activeSession = useMemo(
     () => sessions.find(session => session.id === activeSessionId) ?? sessions[0],
     [activeSessionId, sessions]
   )
+  const sortedSessions = useMemo(() => sortSessions(sessions), [sessions])
 
   useEffect(() => {
     localStorage.setItem(sessionsStorageKey, JSON.stringify(sessions))
   }, [sessions])
 
   useEffect(() => {
+    localStorage.setItem(settingsStorageKey, JSON.stringify(settings))
+    document.documentElement.dataset.theme = settings.theme
+    document.documentElement.dataset.fontSize = settings.fontSize
+  }, [settings])
+
+  useEffect(() => {
     if (activeSession?.model && activeSession.model !== model) {
       setModel(activeSession.model)
     }
   }, [activeSession?.id])
+
+  useEffect(() => {
+    let alive = true
+
+    getOllamaModelInfo(model).then(info => {
+      if (alive) {
+        setModelInfo(info)
+      }
+    })
+
+    return () => {
+      alive = false
+    }
+  }, [model])
 
   const searchCount = useMemo(() => {
     const query = search.trim().toLowerCase()
@@ -153,12 +222,40 @@ export default function OllamaChat() {
   }, [activeSession?.messages, search])
 
   const composerWarning = useMemo(() => {
-    if (attachments.some(attachment => attachment.image) && model && !isVisionModel(model)) {
+    const modelCanSee = modelInfoHasVision(modelInfo) || isVisionModel(model)
+
+    if (attachments.some(attachment => attachment.image) && model && !modelCanSee) {
       return 'Pick vision model for image.'
     }
 
+    if (attachments.some(attachment => (attachment.content?.length ?? 0) > largeContextChars)) {
+      return 'Large file. Use smaller chapter if model forgets.'
+    }
+
     return ''
-  }, [attachments, model])
+  }, [attachments, model, modelInfo])
+
+  useEffect(() => {
+    function handleShortcut(event) {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault()
+        document.querySelector('[aria-label="Search chat"]')?.focus()
+      }
+
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'n') {
+        event.preventDefault()
+        startSession()
+      }
+
+      if (event.key === 'Escape' && loading) {
+        cancelRequest()
+      }
+    }
+
+    window.addEventListener('keydown', handleShortcut)
+
+    return () => window.removeEventListener('keydown', handleShortcut)
+  }, [loading, sessions, activeSessionId])
 
   async function loadModels() {
     setModelsLoading(true)
@@ -176,6 +273,10 @@ export default function OllamaChat() {
 
         if (installedModels.some(installedModel => installedModel.name === activeSession?.model)) {
           return activeSession.model
+        }
+
+        if (installedModels.some(installedModel => installedModel.name === settings.defaultModel)) {
+          return settings.defaultModel
         }
 
         return installedModels[0]?.name ?? ''
@@ -220,7 +321,10 @@ export default function OllamaChat() {
   function startSession() {
     const nextSession = createSession()
 
-    setSessions(currentSessions => [nextSession, ...currentSessions])
+    setSessions(currentSessions => [{
+      ...nextSession,
+      model: settings.defaultModel || model
+    }, ...currentSessions])
     setActiveSessionId(nextSession.id)
     setDraft('')
     setAttachments([])
@@ -228,6 +332,12 @@ export default function OllamaChat() {
   }
 
   function deleteSession(sessionId) {
+    const session = sessions.find(currentSession => currentSession.id === sessionId)
+
+    if (session && !window.confirm(`Delete "${session.title}"?`)) {
+      return
+    }
+
     setSessions(currentSessions => {
       const nextSessions = currentSessions.filter(session => session.id !== sessionId)
       const fallbackSession = nextSessions[0] ?? createSession()
@@ -239,6 +349,41 @@ export default function OllamaChat() {
       return nextSessions.length > 0 ? nextSessions : [fallbackSession]
     })
     setError('')
+  }
+
+  function renameSession(sessionId) {
+    const session = sessions.find(currentSession => currentSession.id === sessionId)
+    const title = window.prompt('Rename chat', session?.title ?? '')
+
+    if (!title?.trim()) {
+      return
+    }
+
+    setSessions(currentSessions => currentSessions.map(currentSession => {
+      if (currentSession.id !== sessionId) {
+        return currentSession
+      }
+
+      return {
+        ...currentSession,
+        title: title.trim(),
+        updatedAt: Date.now()
+      }
+    }))
+  }
+
+  function pinSession(sessionId) {
+    setSessions(currentSessions => currentSessions.map(session => {
+      if (session.id !== sessionId) {
+        return session
+      }
+
+      return {
+        ...session,
+        pinned: !session.pinned,
+        updatedAt: Date.now()
+      }
+    }))
   }
 
   function cancelRequest() {
@@ -265,7 +410,9 @@ export default function OllamaChat() {
     const markdown = activeSession.messages
       .map(message => {
         const attachmentsText = (message.attachments ?? [])
-          .map(attachment => `\n- ${attachment.name}`)
+          .map(attachment => attachment.previewUrl
+            ? `\n- ${attachment.name}\n\n![${attachment.name}](${attachment.previewUrl})`
+            : `\n- ${attachment.name}`)
           .join('')
         const title = message.role === 'user' ? 'You' : 'Ollama'
 
@@ -282,16 +429,58 @@ export default function OllamaChat() {
     URL.revokeObjectURL(url)
   }
 
+  function exportAllChats() {
+    const backup = {
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      settings,
+      sessions
+    }
+    const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+
+    link.href = url
+    link.download = 'ask-ollama-backup.json'
+    link.click()
+    URL.revokeObjectURL(url)
+  }
+
+  async function importAllChats(file) {
+    try {
+      const backup = JSON.parse(await file.text())
+
+      if (!Array.isArray(backup.sessions)) {
+        throw new Error('Bad backup')
+      }
+
+      const importedSessions = backup.sessions.length > 0 ? backup.sessions : [createSession()]
+
+      setSessions(importedSessions)
+      setSettings({
+        ...defaultSettings,
+        ...(backup.settings ?? {})
+      })
+      setActiveSessionId(importedSessions[0].id)
+      setError('')
+    } catch {
+      setError('Backup file not good.')
+    }
+  }
+
   function editMessage(message) {
     const messageIndex = activeSession.messages.findIndex(sessionMessage => sessionMessage.id === message.id)
+    const branchSession = {
+      ...createSession(),
+      title: `${activeSession.title} branch`,
+      model: activeSession.model,
+      messages: messageIndex >= 0 ? activeSession.messages.slice(0, messageIndex) : activeSession.messages
+    }
 
     setDraft(message.content)
     setAttachments([])
-    updateActiveSession(session => ({
-      ...session,
-      messages: messageIndex >= 0 ? session.messages.slice(0, messageIndex) : session.messages,
-      updatedAt: Date.now()
-    }))
+    setSessions(currentSessions => [branchSession, ...currentSessions])
+    setActiveSessionId(branchSession.id)
   }
 
   function setAssistantContent(sessionId, assistantMessageId, content) {
@@ -341,6 +530,8 @@ export default function OllamaChat() {
   }
 
   async function runAnswer({ sessionId, assistantMessageId, messagesForOllama, images, signal }) {
+    const startedAt = Date.now()
+
     await generateOllamaAnswer({
       model,
       prompt: buildFullPrompt(systemPrompt, messagesForOllama.map(message => ({
@@ -351,6 +542,29 @@ export default function OllamaChat() {
       onChunk: chunk => appendAssistantContent(sessionId, assistantMessageId, chunk),
       signal
     })
+
+    setSessions(currentSessions => currentSessions.map(session => {
+      if (session.id !== sessionId) {
+        return session
+      }
+
+      return {
+        ...session,
+        messages: session.messages.map(message => {
+          if (message.id !== assistantMessageId) {
+            return message
+          }
+
+          return {
+            ...message,
+            stats: {
+              seconds: Math.max(1, Math.round((Date.now() - startedAt) / 1000)),
+              words: message.content.trim().split(/\s+/).filter(Boolean).length
+            }
+          }
+        })
+      }
+    }))
   }
 
   async function regenerateLastAnswer() {
@@ -377,6 +591,7 @@ export default function OllamaChat() {
     const userMessage = activeSession.messages[userIndex]
 
     setError('')
+    setStatus('Regenerating')
     setLoading(true)
     activeRequestRef.current = controller
     setAssistantContent(activeSession.id, assistantMessage.id, '')
@@ -398,6 +613,7 @@ export default function OllamaChat() {
     } finally {
       activeRequestRef.current = null
       setLoading(false)
+      setStatus('')
     }
   }
 
@@ -433,6 +649,7 @@ export default function OllamaChat() {
     setDraft('')
     setAttachments([])
     setError('')
+    setStatus(currentAttachments.length > 0 ? 'Reading files' : 'Generating')
     setLoading(true)
     activeRequestRef.current = controller
     updateActiveSession(session => ({
@@ -445,18 +662,20 @@ export default function OllamaChat() {
     try {
       const attachmentText = formatAttachmentContents(currentAttachments)
       const promptImages = getAttachmentImages(currentAttachments)
+      const visibleAttachments = currentAttachments.map(attachment => ({
+        id: attachment.id,
+        name: attachment.name,
+        type: attachment.type,
+        size: attachment.size,
+        previewUrl: attachment.previewUrl
+      }))
       const promptContent = attachmentText
         ? `${trimmedDraft || 'Process attached files.'}\n\nAttached files:\n\n${attachmentText}`
         : trimmedDraft
       const promptUserMessage = {
         ...userMessage,
         promptContent,
-        attachments: currentAttachments.map(attachment => ({
-          id: attachment.id,
-          name: attachment.name,
-          type: attachment.type,
-          size: attachment.size
-        })),
+        attachments: visibleAttachments,
         promptImages
       }
       const messagesForOllama = [...activeSession.messages, promptUserMessage]
@@ -479,6 +698,7 @@ export default function OllamaChat() {
         }
       }))
       setAssistantContent(sessionId, assistantMessage.id, '')
+      setStatus(promptImages.length > 0 ? 'Sending image' : 'Generating')
 
       await runAnswer({
         sessionId,
@@ -496,13 +716,14 @@ export default function OllamaChat() {
     } finally {
       activeRequestRef.current = null
       setLoading(false)
+      setStatus('')
     }
   }
 
   return (
     <main className="app-shell">
       <SessionSidebar
-        sessions={sessions}
+        sessions={sortedSessions}
         activeSessionId={activeSession?.id}
         models={models}
         model={model}
@@ -510,6 +731,8 @@ export default function OllamaChat() {
         onSelectSession={setActiveSessionId}
         onNewSession={startSession}
         onDeleteSession={deleteSession}
+        onRenameSession={renameSession}
+        onPinSession={pinSession}
         onModelChange={changeModel}
         onRefreshModels={loadModels}
       />
@@ -521,19 +744,36 @@ export default function OllamaChat() {
           search={search}
           systemPrompt={systemPrompt}
           searchCount={searchCount}
+          searchIndex={searchCount === 0 ? 0 : Math.abs(searchJump) % searchCount}
+          settingsOpen={settingsOpen}
+          status={status}
           hasMessages={(activeSession?.messages ?? []).length > 0}
           onSearchChange={setSearch}
           onSystemPromptChange={setSystemPrompt}
+          onSearchNext={() => setSearchJump(current => current + 1)}
+          onSearchPrevious={() => setSearchJump(current => current - 1)}
           onExport={exportChat}
           onClear={clearChat}
+          onToggleSettings={() => setSettingsOpen(current => !current)}
+        />
+
+        <SettingsPanel
+          open={settingsOpen}
+          models={models}
+          settings={settings}
+          onSettingsChange={setSettings}
+          onExportAll={exportAllChats}
+          onImportAll={importAllChats}
         />
 
         <ChatMessages
           messages={activeSession?.messages ?? []}
           loading={loading}
           search={search}
+          searchJump={searchJump}
           onEditMessage={editMessage}
           onRegenerate={regenerateLastAnswer}
+          onCancel={cancelRequest}
         />
 
         <ChatComposer

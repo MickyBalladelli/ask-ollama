@@ -4,6 +4,9 @@ contextBridge.exposeInMainWorld('ollamaDesktop', {
   tags() {
     return ipcRenderer.invoke('ollama:tags')
   },
+  show(model) {
+    return ipcRenderer.invoke('ollama:show', model)
+  },
   generate(body, onChunk, signal) {
     const requestId = crypto.randomUUID()
 

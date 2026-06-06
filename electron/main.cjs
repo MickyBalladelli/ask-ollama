@@ -58,6 +58,26 @@ ipcMain.handle('ollama:tags', async () => {
   return response.json()
 })
 
+ipcMain.handle('ollama:show', async (_event, model) => {
+  try {
+    const response = await fetch(ollamaUrl('/api/show'), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ model })
+    })
+
+    if (!response.ok) {
+      return null
+    }
+
+    return response.json()
+  } catch {
+    return null
+  }
+})
+
 ipcMain.on('ollama:generate', async (event, requestId, body) => {
   const controller = new AbortController()
 

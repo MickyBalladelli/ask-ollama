@@ -15,26 +15,42 @@ Ask Ollama is a local chat app for Ollama. It has a React UI, a Vite web build, 
 - Refresh installed models from Ollama.
 - Use a system prompt to guide future answers.
 - Search inside the current chat.
+- Jump to next and previous search match.
+- Highlight matching search text.
 - Export a chat as Markdown.
+- Export image previews in Markdown.
 - Clear the current chat.
-- Edit a user message and resend from that point.
+- Edit a user message into a new branch chat.
 - Regenerate the latest answer.
 - Copy assistant answers.
+- Copy individual code blocks.
 - Cancel an active request.
+- Stop generation from the active answer.
+- See answer time and word count.
 - Auto-scroll while new answer text appears.
 - Stop auto-scroll when you scroll up.
 - Resume auto-scroll when you return near the bottom.
 - Attach text files.
 - Attach PDFs and extract their text.
 - Attach images and send them to vision models.
+- Choose full file or first-part file mode for long files.
 - Paste images from the clipboard.
-- Drag and drop files.
+- Drag and drop files anywhere in the app.
 - Show image thumbnails in the attachment list.
+- Show attached image previews in chat messages.
 - Show attachment type and size.
 - Warn when a file is large and may exceed model memory.
 - Warn when a PDF has no extractable text.
 - Warn when an image is attached but the selected model does not look like a vision model.
 - Show a clearer error when Ollama is not running.
+- Rename chats.
+- Pin chats to the top.
+- Confirm chat deletion.
+- Use prompt templates.
+- Use keyboard shortcuts: Cmd/Ctrl+K search, Cmd/Ctrl+N new chat, Esc cancel.
+- Open settings for theme, font size, default model, backup, and import.
+- Switch between dark and light theme.
+- Back up and restore all chats as JSON.
 - Use `src/images/ollama.png` as the app logo, favicon, window icon, and packaged app icon.
 
 ## Requirements

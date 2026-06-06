@@ -22,6 +22,36 @@ export async function getOllamaModels() {
   return response.json()
 }
 
+export async function getOllamaModelInfo(model) {
+  if (!model) {
+    return null
+  }
+
+  if (window.ollamaDesktop) {
+    return window.ollamaDesktop.show(model)
+  }
+
+  let response
+
+  try {
+    response = await fetch(apiUrl('/api/show'), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ model })
+    })
+  } catch {
+    return null
+  }
+
+  if (!response.ok) {
+    return null
+  }
+
+  return response.json()
+}
+
 export async function generateOllamaAnswer({ model, prompt, images = [], onChunk, signal }) {
   if (window.ollamaDesktop) {
     await window.ollamaDesktop.generate({ model, prompt, images }, onChunk, signal)
