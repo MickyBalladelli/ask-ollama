@@ -2,7 +2,10 @@ import ContentCopyIcon from '@mui/icons-material/ContentCopy'
 import DoneIcon from '@mui/icons-material/Done'
 import EditIcon from '@mui/icons-material/Edit'
 import GraphicEqIcon from '@mui/icons-material/GraphicEq'
+import PushPinIcon from '@mui/icons-material/PushPin'
+import PushPinOutlinedIcon from '@mui/icons-material/PushPinOutlined'
 import ReplayIcon from '@mui/icons-material/Replay'
+import ReadMoreIcon from '@mui/icons-material/ReadMore'
 import StopIcon from '@mui/icons-material/Stop'
 import VolumeUpIcon from '@mui/icons-material/VolumeUp'
 import { Chip, IconButton, Stack, Tooltip, Typography } from '@mui/material'
@@ -108,7 +111,9 @@ export default function ChatMessages({
   onStarter,
   onPreviewAttachment,
   onEditMessage,
+  onTogglePin,
   onRegenerate,
+  onContinue,
   onCancel
 }) {
   const messagesRef = useRef(null)
@@ -234,15 +239,22 @@ export default function ChatMessages({
     <section className="messages" aria-live="polite" ref={messagesRef} onScroll={handleScroll}>
       {messages.map(message => (
         <article
-          className={`message ${message.role}${messageMatchesSearch(message, search) ? ' search-match' : ''}`}
+          className={`message ${message.role}${message.pinned ? ' pinned-message' : ''}${messageMatchesSearch(message, search) ? ' search-match' : ''}`}
           key={message.id}
         >
           <div className="message-top">
             <div className="message-label">
               {message.role === 'user' ? 'You' : 'Ollama'}
+              {message.pinned && <span className="pinned-label">Pinned</span>}
             </div>
 
             <div className="message-actions">
+              <Tooltip title={message.pinned ? 'Unpin message' : 'Pin message'}>
+                <IconButton color="primary" onClick={() => onTogglePin(message.id)} aria-label={message.pinned ? 'Unpin message' : 'Pin message'}>
+                  {message.pinned ? <PushPinIcon /> : <PushPinOutlinedIcon />}
+                </IconButton>
+              </Tooltip>
+
               {message.role === 'user' && (
                 <Tooltip title="Edit message">
                   <IconButton color="primary" onClick={() => onEditMessage(message)} aria-label="Edit message">
@@ -251,13 +263,11 @@ export default function ChatMessages({
                 </Tooltip>
               )}
 
-              {message.role === 'assistant' && (
-                <Tooltip title={copiedId === message.id ? 'Copied' : 'Copy answer'}>
-                  <IconButton color="primary" onClick={() => copyMessage(message)} aria-label={copiedId === message.id ? 'Copied' : 'Copy answer'}>
-                    {copiedId === message.id ? <DoneIcon /> : <ContentCopyIcon />}
-                  </IconButton>
-                </Tooltip>
-              )}
+              <Tooltip title={copiedId === message.id ? 'Copied' : 'Copy message'}>
+                <IconButton color="primary" onClick={() => copyMessage(message)} aria-label={copiedId === message.id ? 'Copied' : 'Copy message'}>
+                  {copiedId === message.id ? <DoneIcon /> : <ContentCopyIcon />}
+                </IconButton>
+              </Tooltip>
 
               {message.role === 'assistant' && (
                 <Tooltip title={speakingId === message.id ? 'Stop speaking' : 'Speak answer'}>
@@ -268,11 +278,19 @@ export default function ChatMessages({
               )}
 
               {message.id === lastAssistantId && !loading && (
-                <Tooltip title="Regenerate answer">
-                  <IconButton color="primary" onClick={onRegenerate} aria-label="Regenerate answer">
-                    <ReplayIcon />
-                  </IconButton>
-                </Tooltip>
+                <>
+                  <Tooltip title="Continue answer">
+                    <IconButton color="primary" onClick={onContinue} aria-label="Continue answer">
+                      <ReadMoreIcon />
+                    </IconButton>
+                  </Tooltip>
+
+                  <Tooltip title="Regenerate answer">
+                    <IconButton color="primary" onClick={onRegenerate} aria-label="Regenerate answer">
+                      <ReplayIcon />
+                    </IconButton>
+                  </Tooltip>
+                </>
               )}
 
               {message.id === lastAssistantId && loading && (

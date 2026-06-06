@@ -6,6 +6,7 @@ import NavigateBeforeIcon from '@mui/icons-material/NavigateBefore'
 import NavigateNextIcon from '@mui/icons-material/NavigateNext'
 import SettingsIcon from '@mui/icons-material/Settings'
 import { Box, IconButton, TextField, Tooltip, Typography } from '@mui/material'
+import OllamaHealth from './OllamaHealth.jsx'
 
 export default function ChatTools({
   search,
@@ -14,6 +15,7 @@ export default function ChatTools({
   searchIndex,
   settingsOpen,
   status,
+  healthStatus,
   onSearchChange,
   onSystemPromptChange,
   onSearchNext,
@@ -60,6 +62,8 @@ export default function ChatTools({
         onChange={event => onSystemPromptChange(event.target.value)}
         placeholder="System prompt"
       />
+
+      <OllamaHealth status={healthStatus} />
 
       <Tooltip title="Export chat">
         <span>

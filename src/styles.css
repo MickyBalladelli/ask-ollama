@@ -277,7 +277,7 @@ label {
 
 .chat-tools {
   display: grid;
-  grid-template-columns: minmax(120px, 220px) auto auto minmax(160px, 1fr) auto auto auto auto;
+  grid-template-columns: minmax(120px, 220px) auto auto minmax(160px, 1fr) auto auto auto auto auto;
   align-items: center;
   gap: 10px;
   padding: 16px 32px 0;
@@ -385,6 +385,11 @@ label {
   box-shadow: 0 0 0 2px rgba(250, 204, 21, 0.12);
 }
 
+.message.pinned-message {
+  border-color: rgba(94, 234, 212, 0.45);
+  box-shadow: inset 3px 0 0 #5eead4;
+}
+
 .search-highlight {
   border-radius: 4px;
   padding: 0 2px;
@@ -404,10 +409,26 @@ label {
 }
 
 .message-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   color: #94a3b8;
   font-size: 0.78rem;
   font-weight: 800;
   text-transform: uppercase;
+}
+
+.pinned-label {
+  border: 1px solid rgba(94, 234, 212, 0.28);
+  border-radius: 999px;
+  padding: 2px 6px;
+  color: #99f6e4;
+  background: rgba(20, 184, 166, 0.1);
+  font-size: 0.66rem;
+}
+
+.health-chip {
+  justify-self: start;
 }
 
 .message p {

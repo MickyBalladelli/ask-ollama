@@ -174,6 +174,7 @@ export default function OllamaChat() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [modelsLoading, setModelsLoading] = useState(false)
+  const [healthStatus, setHealthStatus] = useState('checking')
   const [search, setSearch] = useState('')
   const [systemPrompt, setSystemPrompt] = useState('')
   const [settings, setSettings] = useState(loadSavedSettings)
@@ -367,12 +368,14 @@ export default function OllamaChat() {
 
   async function loadModels() {
     setModelsLoading(true)
+    setHealthStatus('checking')
     setError('')
 
     try {
       const data = await getOllamaModels()
       const installedModels = data.models ?? []
 
+      setHealthStatus('online')
       setModels(installedModels)
       setModel(current => {
         if (installedModels.some(installedModel => installedModel.name === current)) {
@@ -390,6 +393,7 @@ export default function OllamaChat() {
         return installedModels[0]?.name ?? ''
       })
     } catch (err) {
+      setHealthStatus('offline')
       setModels([])
       setModel('')
       setError(err.message || 'Could not load Ollama models')
@@ -536,6 +540,23 @@ export default function OllamaChat() {
     setError('')
     setClearDialogOpen(false)
     showToast('Chat cleared')
+  }
+
+  function toggleMessagePin(messageId) {
+    updateActiveSession(session => ({
+      ...session,
+      messages: session.messages.map(message => {
+        if (message.id !== messageId) {
+          return message
+        }
+
+        return {
+          ...message,
+          pinned: !message.pinned
+        }
+      }),
+      updatedAt: Date.now()
+    }))
   }
 
   function undoClearChat() {
@@ -780,6 +801,63 @@ export default function OllamaChat() {
     }
   }
 
+  async function continueLastAnswer() {
+    if (!activeSession || loading) {
+      return
+    }
+
+    const lastAssistant = [...activeSession.messages].reverse().find(message => message.role === 'assistant')
+
+    if (!lastAssistant?.content) {
+      return
+    }
+
+    const controller = new AbortController()
+    const sessionId = activeSession.id
+    const userMessage = {
+      id: crypto.randomUUID(),
+      role: 'user',
+      content: 'Continue.',
+      promptContent: 'Continue from where you stopped. Do not repeat earlier text.'
+    }
+    const assistantMessage = {
+      id: crypto.randomUUID(),
+      role: 'assistant',
+      content: ''
+    }
+    const messagesForOllama = [...activeSession.messages, userMessage]
+
+    setError('')
+    setStatus('Continuing')
+    setLoading(true)
+    activeRequestRef.current = controller
+    updateActiveSession(session => ({
+      ...session,
+      messages: [...session.messages, userMessage, assistantMessage],
+      updatedAt: Date.now()
+    }))
+
+    try {
+      await runAnswer({
+        sessionId,
+        assistantMessageId: assistantMessage.id,
+        messagesForOllama,
+        images: [],
+        signal: controller.signal
+      })
+    } catch (err) {
+      if (err.name === 'AbortError') {
+        setAssistantContent(sessionId, assistantMessage.id, 'Canceled.')
+      } else {
+        setError(err.message || 'Ollama request failed')
+      }
+    } finally {
+      activeRequestRef.current = null
+      setLoading(false)
+      setStatus('')
+    }
+  }
+
   async function askOllama(event) {
     event.preventDefault()
 
@@ -918,6 +996,7 @@ export default function OllamaChat() {
           searchIndex={searchCount === 0 ? 0 : Math.abs(searchJump) % searchCount}
           settingsOpen={settingsOpen}
           status={status}
+          healthStatus={healthStatus}
           hasMessages={(activeSession?.messages ?? []).length > 0}
           onSearchChange={setSearch}
           onSystemPromptChange={changeSystemPrompt}
@@ -948,7 +1027,9 @@ export default function OllamaChat() {
           onStarter={applyStarter}
           onPreviewAttachment={setPreviewAttachment}
           onEditMessage={editMessage}
+          onTogglePin={toggleMessagePin}
           onRegenerate={regenerateLastAnswer}
+          onContinue={continueLastAnswer}
           onCancel={cancelRequest}
         />
 
