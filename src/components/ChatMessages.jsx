@@ -13,7 +13,21 @@ function formatSize(size) {
   return `${Math.round(size / 1024 / 1024)} MB`
 }
 
-export default function ChatMessages({ messages, loading, onEditMessage, onRegenerate }) {
+function messageMatchesSearch(message, search) {
+  const query = search.trim().toLowerCase()
+
+  if (!query) {
+    return false
+  }
+
+  const attachmentText = (message.attachments ?? [])
+    .map(attachment => attachment.name)
+    .join(' ')
+
+  return `${message.content} ${attachmentText}`.toLowerCase().includes(query)
+}
+
+export default function ChatMessages({ messages, loading, search, onEditMessage, onRegenerate }) {
   const messagesRef = useRef(null)
   const autoScrollRef = useRef(true)
   const [copiedId, setCopiedId] = useState('')
@@ -61,7 +75,10 @@ export default function ChatMessages({ messages, loading, onEditMessage, onRegen
   return (
     <section className="messages" aria-live="polite" ref={messagesRef} onScroll={handleScroll}>
       {messages.map(message => (
-        <article className={`message ${message.role}`} key={message.id}>
+        <article
+          className={`message ${message.role}${messageMatchesSearch(message, search) ? ' search-match' : ''}`}
+          key={message.id}
+        >
           <div className="message-top">
             <div className="message-label">
               {message.role === 'user' ? 'You' : 'Ollama'}

@@ -1,6 +1,7 @@
 export default function ChatTools({
   search,
   systemPrompt,
+  searchCount,
   onSearchChange,
   onSystemPromptChange,
   onExport,
@@ -15,6 +16,8 @@ export default function ChatTools({
         onChange={event => onSearchChange(event.target.value)}
         placeholder="Search chat"
       />
+
+      {search.trim() && <span className="search-count">{searchCount} found</span>}
 
       <input
         aria-label="System prompt"

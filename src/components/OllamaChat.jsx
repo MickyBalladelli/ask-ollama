@@ -111,11 +111,11 @@ export default function OllamaChat() {
     }
   }, [activeSession?.id])
 
-  const visibleMessages = useMemo(() => {
+  const searchCount = useMemo(() => {
     const query = search.trim().toLowerCase()
 
     if (!query) {
-      return activeSession?.messages ?? []
+      return 0
     }
 
     return (activeSession?.messages ?? []).filter(message => {
@@ -124,7 +124,7 @@ export default function OllamaChat() {
         .join(' ')
 
       return `${message.content} ${attachmentText}`.toLowerCase().includes(query)
-    })
+    }).length
   }, [activeSession?.messages, search])
 
   const composerWarning = useMemo(() => {
@@ -495,6 +495,7 @@ export default function OllamaChat() {
         <ChatTools
           search={search}
           systemPrompt={systemPrompt}
+          searchCount={searchCount}
           hasMessages={(activeSession?.messages ?? []).length > 0}
           onSearchChange={setSearch}
           onSystemPromptChange={setSystemPrompt}
@@ -503,8 +504,9 @@ export default function OllamaChat() {
         />
 
         <ChatMessages
-          messages={visibleMessages}
+          messages={activeSession?.messages ?? []}
           loading={loading}
+          search={search}
           onEditMessage={editMessage}
           onRegenerate={regenerateLastAnswer}
         />

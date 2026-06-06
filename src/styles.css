@@ -237,13 +237,20 @@ select:disabled {
 
 .chat-tools {
   display: grid;
-  grid-template-columns: minmax(120px, 240px) minmax(160px, 1fr) auto auto;
+  grid-template-columns: minmax(120px, 240px) auto minmax(160px, 1fr) auto auto;
+  align-items: center;
   gap: 10px;
   padding: 16px 32px 0;
 }
 
 .chat-tools input {
   min-height: 42px;
+}
+
+.search-count {
+  color: #94a3b8;
+  font-size: 0.82rem;
+  white-space: nowrap;
 }
 
 .messages {
@@ -287,6 +294,11 @@ select:disabled {
 .message.assistant {
   align-self: flex-start;
   width: min(880px, 92%);
+}
+
+.message.search-match {
+  border-color: rgba(250, 204, 21, 0.62);
+  box-shadow: 0 0 0 2px rgba(250, 204, 21, 0.12);
 }
 
 .message-top {
