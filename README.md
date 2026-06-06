@@ -1,82 +1,123 @@
 # Ask Ollama
 
-A small Vite + React frontend for querying an Ollama-compatible backend.
+Ask Ollama is a local chat app for Ollama. It has a React UI, a Vite web build, and an Electron desktop shell.
 
-## What this project does
+## Features
 
-- Loads installed Ollama models from the backend
-- Sends prompts to the backend to generate markdown responses
-- Streams Ollama output into the UI
-- Uses React for UI state and Vite for development/build tooling
+- Chat with any installed Ollama model.
+- Stream answers as Ollama writes them.
+- Render answers as Markdown, including code blocks, tables, links, and lists.
+- Keep multiple saved chats in the left sidebar.
+- Create, switch, and delete chats.
+- Save chats in browser local storage.
+- Remember the selected model per chat.
+- Show model badges for text, vision, code, and large-context guesses.
+- Refresh installed models from Ollama.
+- Use a system prompt to guide future answers.
+- Search inside the current chat.
+- Export a chat as Markdown.
+- Clear the current chat.
+- Edit a user message and resend from that point.
+- Regenerate the latest answer.
+- Copy assistant answers.
+- Cancel an active request.
+- Auto-scroll while new answer text appears.
+- Stop auto-scroll when you scroll up.
+- Resume auto-scroll when you return near the bottom.
+- Attach text files.
+- Attach PDFs and extract their text.
+- Attach images and send them to vision models.
+- Paste images from the clipboard.
+- Drag and drop files.
+- Show image thumbnails in the attachment list.
+- Show attachment type and size.
+- Warn when a file is large and may exceed model memory.
+- Warn when a PDF has no extractable text.
+- Warn when an image is attached but the selected model does not look like a vision model.
+- Show a clearer error when Ollama is not running.
+- Use `src/images/ollama.png` as the app logo, favicon, window icon, and packaged app icon.
 
-## How the backend is used
+## Requirements
 
-The app makes two API calls from `src/components/OllamaChat.jsx`:
+- Node.js and npm.
+- Ollama running on the machine.
+- At least one Ollama model installed.
+- A vision model, such as `llava`, if you want image understanding.
 
-- `GET /api/ollama/api/tags` to fetch available models
-- `POST /api/ollama/api/generate` to send prompts and stream results
-
-In development, `vite.config.js` proxies `/api/ollama` to `http://localhost:11434`.
-
-## Production backend configuration
-
-You can override the default API path by setting:
-
-```env
-VITE_OLLAMA_API_BASE_URL=https://api.example.com/api/ollama
-```
-
-When this environment variable is set, the frontend will call:
-
-- `https://api.example.com/api/ollama/api/tags`
-- `https://api.example.com/api/ollama/api/generate`
-
-If the variable is omitted, the app defaults to using `/api/ollama`.
-
-## Setup and usage
-
-Install dependencies:
+## Install
 
 ```bash
 npm install
 ```
 
-Start development server:
+## Run Web App
 
 ```bash
 npm run dev
 ```
 
-Build for production:
+Vite proxies Ollama calls from `/api/ollama` to `http://localhost:11434`.
+
+## Build Web App
 
 ```bash
 npm run build
 ```
 
-Build a self-contained Windows app:
+## Run Desktop App
+
+```bash
+npm run desktop
+```
+
+The desktop app talks directly to `http://localhost:11434`.
+
+## Package Apps
+
+Build Windows portable app:
 
 ```bash
 npm run dist:win
 ```
 
-The portable `.exe` is written to `release/`. It bundles the React app and Electron shell. Ollama must still be running on the Windows machine.
-
-Build a Mac app:
+Build Mac app:
 
 ```bash
 npm run dist:mac
 ```
 
-The `.dmg`, `.zip`, and `.app` outputs are written to `release/`. Ollama must still be running on the Mac.
+Outputs go to `release/`. Ollama must still be running on the target machine.
 
-Preview the production build:
+## Backend Configuration
 
-```bash
-npm run preview
+Default web API base:
+
+```text
+/api/ollama
 ```
+
+Override it with:
+
+```env
+VITE_OLLAMA_API_BASE_URL=https://example.com/api/ollama
+```
+
+The app uses:
+
+- `GET /api/tags` to load models.
+- `POST /api/generate` to stream answers.
+
+## Project Structure
+
+- `src/components/` - React UI components.
+- `src/lib/` - Ollama API, file helpers, PDF text, model capability helpers.
+- `src/images/ollama.png` - logo and icon image.
+- `electron/` - desktop app shell and preload bridge.
+- `vite.config.js` - Vite config and Ollama proxy.
+- `package.json` - scripts and Electron packaging config.
 
 ## Notes
 
-- This frontend is a static React app after build.
-- It still requires a running Ollama backend at runtime.
-- Use `.env` or `.env.local` to define `VITE_OLLAMA_API_BASE_URL` for production.
+- Attached books and text files are sent as-is, not summarized first.
+- Very large files may exceed the selected model context.
+- Image attachments need a vision-capable Ollama model.
