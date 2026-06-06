@@ -18,7 +18,6 @@ export default function SessionSidebar({
       <div className="app-title">
         <img className="app-logo" src={logoUrl} alt="" />
         <div>
-          <p className="eyebrow">Ollama</p>
           <h1>Ask Ollama</h1>
         </div>
       </div>
