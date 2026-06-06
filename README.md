@@ -24,6 +24,8 @@ Ask Ollama is a local chat app for Ollama. It has a React UI, a Vite web build, 
 - Regenerate the latest answer.
 - Copy assistant answers.
 - Copy individual code blocks.
+- Read assistant answers out loud with browser text to speech.
+- Dictate prompts with browser speech to text when supported.
 - Cancel an active request.
 - Stop generation from the active answer.
 - See answer time and word count.

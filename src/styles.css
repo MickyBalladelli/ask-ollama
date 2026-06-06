@@ -458,7 +458,7 @@ select:disabled {
 
 .chat-composer {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 140px 130px auto auto auto;
+  grid-template-columns: minmax(0, 1fr) 140px 130px auto auto auto auto;
   align-items: end;
   gap: 12px;
   padding: 18px 32px 28px;
@@ -486,10 +486,16 @@ select:disabled {
   min-height: 0;
 }
 
-.attach-button {
+.attach-button,
+.mic-button {
   color: #e2e8f0;
   background: rgba(30, 41, 59, 0.82);
   border: 1px solid rgba(148, 163, 184, 0.22);
+}
+
+.mic-button.listening {
+  color: #071014;
+  background: #fde047;
 }
 
 .cancel-button {

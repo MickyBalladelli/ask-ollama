@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import MarkdownResult from './MarkdownResult.jsx'
+import { speakText, stopSpeaking } from '../lib/speech.js'
 
 function formatSize(size) {
   if (size < 1024) {
@@ -94,6 +95,7 @@ export default function ChatMessages({ messages, loading, search, searchJump, on
   const messagesRef = useRef(null)
   const autoScrollRef = useRef(true)
   const [copiedId, setCopiedId] = useState('')
+  const [speakingId, setSpeakingId] = useState('')
   const scrollKey = useMemo(
     () => messages.map(message => `${message.id}:${message.content.length}`).join('|'),
     [messages]
@@ -154,6 +156,24 @@ export default function ChatMessages({ messages, loading, search, searchJump, on
     window.setTimeout(() => setCopiedId(''), 1200)
   }
 
+  function toggleSpeech(message) {
+    if (speakingId === message.id) {
+      stopSpeaking()
+      setSpeakingId('')
+      return
+    }
+
+    if (speakText(message.content, () => setSpeakingId(''))) {
+      setSpeakingId(message.id)
+    }
+  }
+
+  useEffect(() => {
+    return () => {
+      stopSpeaking()
+    }
+  }, [])
+
   if (messages.length === 0) {
     return (
       <section className="messages empty-chat" ref={messagesRef}>
@@ -184,6 +204,12 @@ export default function ChatMessages({ messages, loading, search, searchJump, on
               {message.role === 'assistant' && (
                 <button type="button" onClick={() => copyMessage(message)}>
                   {copiedId === message.id ? 'Copied' : 'Copy'}
+                </button>
+              )}
+
+              {message.role === 'assistant' && (
+                <button type="button" onClick={() => toggleSpeech(message)}>
+                  {speakingId === message.id ? 'Quiet' : 'Speak'}
                 </button>
               )}
 

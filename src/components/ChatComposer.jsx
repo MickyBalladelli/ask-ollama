@@ -3,6 +3,7 @@ import AttachmentList from './AttachmentList.jsx'
 import PromptTemplates from './PromptTemplates.jsx'
 import { extractPdfText } from '../lib/pdfText.js'
 import { isImageFile, readFileAsDataUrl } from '../lib/files.js'
+import { canUseSpeechRecognition, getSpeechRecognition } from '../lib/speech.js'
 
 const maxFileBytes = 30 * 1024 * 1024
 const bigAttachmentChars = 120000
@@ -50,6 +51,9 @@ export default function ChatComposer({
   const [fileError, setFileError] = useState('')
   const [dragging, setDragging] = useState(false)
   const [fileMode, setFileMode] = useState('full')
+  const [listening, setListening] = useState(false)
+  const recognitionRef = useRef(null)
+  const dictationBaseRef = useRef('')
 
   const hasBigAttachment = attachments.some(attachment => (attachment.content?.length ?? 0) > bigAttachmentChars)
 
@@ -116,6 +120,53 @@ export default function ChatComposer({
 
   function handleBrowse() {
     fileInputRef.current?.click()
+  }
+
+  function toggleMic() {
+    if (listening) {
+      recognitionRef.current?.stop()
+      return
+    }
+
+    const Recognition = getSpeechRecognition()
+
+    if (!Recognition) {
+      setFileError('Speech input not supported here.')
+      return
+    }
+
+    const recognition = new Recognition()
+
+    dictationBaseRef.current = value
+    recognition.continuous = false
+    recognition.interimResults = true
+    recognition.lang = navigator.language || 'en-US'
+    recognitionRef.current = recognition
+    setListening(true)
+
+    recognition.onresult = event => {
+      const transcript = Array.from(event.results)
+        .map(result => result[0]?.transcript ?? '')
+        .join('')
+        .trim()
+
+      if (transcript) {
+        const base = dictationBaseRef.current.trim()
+
+        onChange(base ? `${base} ${transcript}` : transcript)
+      }
+    }
+
+    recognition.onerror = () => {
+      setFileError('Speech input failed.')
+    }
+
+    recognition.onend = () => {
+      setListening(false)
+      recognitionRef.current = null
+    }
+
+    recognition.start()
   }
 
   useEffect(() => {
@@ -195,6 +246,15 @@ export default function ChatComposer({
 
       <button className="attach-button" type="button" disabled={loading} onClick={handleBrowse}>
         File
+      </button>
+
+      <button
+        className={listening ? 'mic-button listening' : 'mic-button'}
+        type="button"
+        disabled={loading || !canUseSpeechRecognition()}
+        onClick={toggleMic}
+      >
+        {listening ? 'Stop' : 'Mic'}
       </button>
 
       {loading && (
