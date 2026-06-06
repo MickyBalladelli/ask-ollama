@@ -25,44 +25,126 @@ textarea {
 
 .app-shell {
   display: grid;
-  grid-template-columns: minmax(320px, 420px) minmax(0, 1fr);
+  grid-template-columns: 300px minmax(0, 1fr);
   min-height: 100vh;
-  background:
-    linear-gradient(135deg, rgba(20, 184, 166, 0.14), transparent 34%),
-    linear-gradient(315deg, rgba(59, 130, 246, 0.14), transparent 38%),
-    #0f1218;
+  background: #0f1218;
 }
 
-.query-panel {
+.session-sidebar {
   display: flex;
   flex-direction: column;
-  gap: 28px;
-  padding: 40px;
-  background: rgba(18, 23, 32, 0.88);
+  gap: 22px;
+  min-height: 100vh;
+  padding: 24px;
+  background: #121720;
   border-right: 1px solid rgba(148, 163, 184, 0.18);
-  backdrop-filter: blur(18px);
+}
+
+.app-title,
+.sidebar-top {
+  display: grid;
+  gap: 18px;
+}
+
+.sidebar-top {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
 }
 
 .eyebrow {
-  margin: 0 0 8px;
+  margin: 0 0 6px;
   color: #5eead4;
-  font-size: 0.78rem;
+  font-size: 0.72rem;
   font-weight: 800;
   letter-spacing: 0;
   text-transform: uppercase;
 }
 
-h1 {
+h1,
+h2 {
   margin: 0;
   color: #f8fafc;
-  font-family: Tangerine, cursive;
-  font-size: clamp(3rem, 5vw, 6rem);
-  line-height: 0.95;
 }
 
-.query-form {
+h1 {
+  font-family: Tangerine, cursive;
+  font-size: 4.8rem;
+  line-height: 0.9;
+}
+
+h2 {
+  font-size: 1.15rem;
+}
+
+button {
+  min-height: 42px;
+  border: 0;
+  border-radius: 8px;
+  padding: 0 16px;
+  color: #071014;
+  background: #5eead4;
+  font-weight: 800;
+  cursor: pointer;
+  transition: background 140ms ease, opacity 140ms ease;
+}
+
+button:hover:not(:disabled) {
+  background: #99f6e4;
+}
+
+button:disabled {
+  opacity: 0.68;
+  cursor: wait;
+}
+
+.session-list {
   display: grid;
-  gap: 18px;
+  gap: 8px;
+  overflow: auto;
+}
+
+.session-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+}
+
+.session-button,
+.delete-session-button,
+.secondary-button {
+  color: #e2e8f0;
+  background: rgba(30, 41, 59, 0.82);
+  border: 1px solid rgba(148, 163, 184, 0.22);
+}
+
+.session-button {
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.session-button.active {
+  color: #071014;
+  background: #5eead4;
+}
+
+.delete-session-button {
+  padding: 0 10px;
+  font-size: 0.78rem;
+}
+
+.chat-panel {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  height: 100vh;
+  background:
+    linear-gradient(135deg, rgba(20, 184, 166, 0.13), transparent 32%),
+    linear-gradient(315deg, rgba(59, 130, 246, 0.12), transparent 38%),
+    #0f1218;
 }
 
 label {
@@ -93,29 +175,7 @@ textarea:focus {
 }
 
 textarea {
-  resize: vertical;
-}
-
-button {
-  min-height: 46px;
-  border: 0;
-  border-radius: 8px;
-  padding: 0 18px;
-  color: #071014;
-  background: #5eead4;
-  font-weight: 800;
-  cursor: pointer;
-  transition: transform 140ms ease, background 140ms ease, opacity 140ms ease;
-}
-
-button:hover:not(:disabled) {
-  transform: translateY(-1px);
-  background: #99f6e4;
-}
-
-button:disabled {
-  opacity: 0.68;
-  cursor: wait;
+  resize: none;
 }
 
 .model-row {
@@ -124,14 +184,9 @@ button:disabled {
   gap: 10px;
 }
 
-.secondary-button {
-  min-height: 44px;
-  color: #e2e8f0;
-  background: rgba(30, 41, 59, 0.82);
-  border: 1px solid rgba(148, 163, 184, 0.22);
-}
-
-.secondary-button:hover:not(:disabled) {
+.secondary-button:hover:not(:disabled),
+.session-button:hover:not(.active),
+.delete-session-button:hover {
   background: rgba(51, 65, 85, 0.92);
 }
 
@@ -140,7 +195,7 @@ select:disabled {
 }
 
 .error-text {
-  margin: 0;
+  margin: 16px 32px 0;
   padding: 12px 14px;
   border: 1px solid rgba(248, 113, 113, 0.35);
   border-radius: 8px;
@@ -148,31 +203,91 @@ select:disabled {
   background: rgba(127, 29, 29, 0.28);
 }
 
-.result-panel {
-  min-width: 0;
-  padding: 40px;
+.messages {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  gap: 18px;
+  justify-content: flex-end;
+  min-height: 0;
+  padding: 28px 32px;
   overflow: auto;
 }
 
-.empty-state {
-  display: grid;
-  min-height: calc(100vh - 80px);
-  place-items: center;
-  border: 1px dashed rgba(148, 163, 184, 0.24);
-  border-radius: 8px;
+.empty-chat {
+  justify-content: center;
+  align-items: center;
   color: #94a3b8;
-  text-align: center;
-  background: rgba(15, 18, 24, 0.34);
+}
+
+.message {
+  max-width: 880px;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 8px;
+  padding: 14px 16px;
+  background: rgba(15, 18, 24, 0.72);
+}
+
+.message.user {
+  align-self: flex-end;
+  width: min(720px, 88%);
+  background: rgba(20, 184, 166, 0.14);
+}
+
+.message.assistant {
+  align-self: flex-start;
+  width: min(880px, 92%);
+}
+
+.message-label {
+  margin-bottom: 8px;
+  color: #94a3b8;
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.message p {
+  margin: 0;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+.chat-composer {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 12px;
+  padding: 18px 32px 28px;
+  background: rgba(15, 18, 24, 0.92);
+  border-top: 1px solid rgba(148, 163, 184, 0.16);
+}
+
+.chat-composer textarea {
+  min-height: 54px;
+  max-height: 150px;
+}
+
+.chat-composer button {
+  height: 54px;
+  min-height: 0;
+}
+
+.empty-state {
+  color: #94a3b8;
 }
 
 .markdown-result {
-  max-width: 840px;
   color: #e2e8f0;
   line-height: 1.7;
 }
 
 .markdown-result > *:first-child {
   margin-top: 0;
+}
+
+.markdown-result > *:last-child {
+  margin-bottom: 0;
 }
 
 .markdown-result h1,
@@ -229,21 +344,32 @@ select:disabled {
     grid-template-columns: 1fr;
   }
 
-  .query-panel {
+  .session-sidebar {
+    min-height: auto;
+    max-height: 220px;
     border-right: 0;
     border-bottom: 1px solid rgba(148, 163, 184, 0.18);
-    padding: 24px;
   }
 
-  .result-panel {
-    padding: 24px;
+  .chat-panel {
+    height: calc(100vh - 220px);
+  }
+
+  .chat-composer {
+    grid-template-columns: 1fr;
+    padding-right: 20px;
+    padding-left: 20px;
+  }
+
+  .messages {
+    padding: 20px;
+  }
+
+  h1 {
+    font-size: 3.8rem;
   }
 
   .model-row {
     grid-template-columns: 1fr;
-  }
-
-  .empty-state {
-    min-height: 220px;
   }
 }

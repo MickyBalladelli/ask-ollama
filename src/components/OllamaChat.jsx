@@ -1,18 +1,66 @@
-import { useEffect, useState } from 'react'
-import MarkdownResult from './MarkdownResult.jsx'
-import ModelSelect from './ModelSelect.jsx'
+import { useEffect, useMemo, useState } from 'react'
+import ChatComposer from './ChatComposer.jsx'
+import ChatMessages from './ChatMessages.jsx'
+import SessionSidebar from './SessionSidebar.jsx'
 import { generateOllamaAnswer, getOllamaModels } from '../lib/ollamaApi.js'
 
-const defaultPrompt = 'Write a short markdown note about why local LLMs are useful.'
+const sessionsStorageKey = 'ask-ollama-sessions'
+
+function createSession() {
+  return {
+    id: crypto.randomUUID(),
+    title: 'New chat',
+    messages: [],
+    createdAt: Date.now(),
+    updatedAt: Date.now()
+  }
+}
+
+function summarizeDiscussion(text) {
+  const cleanText = text.trim().replace(/\s+/g, ' ')
+  const words = cleanText.split(' ').slice(0, 7).join(' ')
+
+  return words || 'New chat'
+}
+
+function buildPrompt(messages) {
+  return messages
+    .map(message => `${message.role === 'user' ? 'User' : 'Ollama'}: ${message.content}`)
+    .join('\n\n')
+}
+
+function loadSavedSessions() {
+  try {
+    const savedSessions = JSON.parse(localStorage.getItem(sessionsStorageKey) || '[]')
+
+    if (Array.isArray(savedSessions) && savedSessions.length > 0) {
+      return savedSessions
+    }
+  } catch {
+    return [createSession()]
+  }
+
+  return [createSession()]
+}
 
 export default function OllamaChat() {
   const [models, setModels] = useState([])
   const [model, setModel] = useState('')
-  const [prompt, setPrompt] = useState(defaultPrompt)
-  const [answer, setAnswer] = useState('')
+  const [draft, setDraft] = useState('')
+  const [sessions, setSessions] = useState(loadSavedSessions)
+  const [activeSessionId, setActiveSessionId] = useState(() => sessions[0].id)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [modelsLoading, setModelsLoading] = useState(false)
+
+  const activeSession = useMemo(
+    () => sessions.find(session => session.id === activeSessionId) ?? sessions[0],
+    [activeSessionId, sessions]
+  )
+
+  useEffect(() => {
+    localStorage.setItem(sessionsStorageKey, JSON.stringify(sessions))
+  }, [sessions])
 
   async function loadModels() {
     setModelsLoading(true)
@@ -43,22 +91,96 @@ export default function OllamaChat() {
     loadModels()
   }, [])
 
+  function updateActiveSession(updater) {
+    setSessions(currentSessions => currentSessions.map(session => {
+      if (session.id !== activeSession.id) {
+        return session
+      }
+
+      return updater(session)
+    }))
+  }
+
+  function startSession() {
+    const nextSession = createSession()
+
+    setSessions(currentSessions => [nextSession, ...currentSessions])
+    setActiveSessionId(nextSession.id)
+    setDraft('')
+    setError('')
+  }
+
+  function deleteSession(sessionId) {
+    setSessions(currentSessions => {
+      const nextSessions = currentSessions.filter(session => session.id !== sessionId)
+      const fallbackSession = nextSessions[0] ?? createSession()
+
+      if (sessionId === activeSessionId) {
+        setActiveSessionId(fallbackSession.id)
+      }
+
+      return nextSessions.length > 0 ? nextSessions : [fallbackSession]
+    })
+    setError('')
+  }
+
   async function askOllama(event) {
     event.preventDefault()
 
-    if (!prompt.trim() || !model || loading) {
+    const trimmedDraft = draft.trim()
+
+    if (!trimmedDraft || !model || loading || !activeSession) {
       return
     }
 
-    setAnswer('')
+    const userMessage = {
+      id: crypto.randomUUID(),
+      role: 'user',
+      content: trimmedDraft
+    }
+    const assistantMessage = {
+      id: crypto.randomUUID(),
+      role: 'assistant',
+      content: ''
+    }
+    const messagesForOllama = [...activeSession.messages, userMessage]
+
+    setDraft('')
     setError('')
     setLoading(true)
+    updateActiveSession(session => ({
+      ...session,
+      title: session.messages.length === 0 ? summarizeDiscussion(trimmedDraft) : session.title,
+      messages: [...messagesForOllama, assistantMessage],
+      updatedAt: Date.now()
+    }))
 
     try {
       await generateOllamaAnswer({
         model,
-        prompt,
-        onChunk: chunk => setAnswer(current => current + chunk)
+        prompt: buildPrompt(messagesForOllama),
+        onChunk: chunk => {
+          setSessions(currentSessions => currentSessions.map(session => {
+            if (session.id !== activeSession.id) {
+              return session
+            }
+
+            return {
+              ...session,
+              messages: session.messages.map(message => {
+                if (message.id !== assistantMessage.id) {
+                  return message
+                }
+
+                return {
+                  ...message,
+                  content: message.content + chunk
+                }
+              }),
+              updatedAt: Date.now()
+            }
+          }))
+        }
       })
     } catch (err) {
       setError(err.message || 'Ollama request failed')
@@ -69,40 +191,31 @@ export default function OllamaChat() {
 
   return (
     <main className="app-shell">
-      <section className="query-panel">
-        <div>
-          <p className="eyebrow">Ollama Markdown</p>
-          <h1>Ask Ollama</h1>
-        </div>
+      <SessionSidebar
+        sessions={sessions}
+        activeSessionId={activeSession?.id}
+        models={models}
+        model={model}
+        modelsLoading={modelsLoading}
+        onSelectSession={setActiveSessionId}
+        onNewSession={startSession}
+        onDeleteSession={deleteSession}
+        onModelChange={setModel}
+        onRefreshModels={loadModels}
+      />
 
-        <form onSubmit={askOllama} className="query-form">
-          <ModelSelect
-            models={models}
-            value={model}
-            loading={modelsLoading}
-            onChange={setModel}
-            onRefresh={loadModels}
-          />
-
-          <label>
-            Prompt
-            <textarea
-              value={prompt}
-              onChange={event => setPrompt(event.target.value)}
-              rows="7"
-            />
-          </label>
-
-          <button type="submit" disabled={loading || modelsLoading || !model}>
-            {loading ? 'Thinking...' : 'Ask'}
-          </button>
-        </form>
-
+      <section className="chat-panel">
         {error && <p className="error-text">{error}</p>}
-      </section>
 
-      <section className="result-panel" aria-live="polite">
-        <MarkdownResult content={answer} />
+        <ChatMessages messages={activeSession?.messages ?? []} loading={loading} />
+
+        <ChatComposer
+          value={draft}
+          loading={loading}
+          disabled={modelsLoading || !model}
+          onChange={setDraft}
+          onSubmit={askOllama}
+        />
       </section>
     </main>
   )
