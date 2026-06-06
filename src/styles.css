@@ -460,10 +460,8 @@ label {
 
 .chat-composer {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 140px 130px auto auto auto auto;
-  align-items: end;
-  gap: 12px;
-  padding: 18px 32px 28px;
+  gap: 10px;
+  padding: 14px 32px 20px;
   background: rgba(15, 18, 24, 0.92);
   border-top: 1px solid rgba(148, 163, 184, 0.16);
 }
@@ -476,6 +474,32 @@ label {
 .composer-main {
   display: grid;
   gap: 8px;
+}
+
+.composer-toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+}
+
+.composer-options,
+.composer-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.composer-options {
+  min-width: 0;
+}
+
+.composer-options .MuiFormControl-root {
+  width: 150px;
+}
+
+.composer-actions {
+  justify-content: end;
 }
 
 .context-meter {
@@ -652,6 +676,19 @@ label {
     grid-template-columns: 1fr;
     padding-right: 20px;
     padding-left: 20px;
+  }
+
+  .composer-toolbar {
+    grid-template-columns: 1fr;
+  }
+
+  .composer-options,
+  .composer-actions {
+    justify-content: space-between;
+  }
+
+  .composer-options .MuiFormControl-root {
+    width: min(50%, 180px);
   }
 
   .chat-tools {
