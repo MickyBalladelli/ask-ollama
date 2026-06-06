@@ -1,4 +1,4 @@
-const { app, BrowserWindow } = require('electron')
+const { app, BrowserWindow, ipcMain } = require('electron')
 const path = require('node:path')
 
 function createWindow() {
@@ -10,6 +10,7 @@ function createWindow() {
     title: 'Ask Ollama',
     backgroundColor: '#0f172a',
     webPreferences: {
+      preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true,
       nodeIntegration: false
     }
@@ -31,5 +32,79 @@ app.whenReady().then(() => {
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit()
+  }
+})
+
+function ollamaUrl(pathname) {
+  return `http://localhost:11434${pathname}`
+}
+
+ipcMain.handle('ollama:tags', async () => {
+  const response = await fetch(ollamaUrl('/api/tags'))
+
+  if (!response.ok) {
+    throw new Error(`Ollama models failed ${response.status}`)
+  }
+
+  return response.json()
+})
+
+ipcMain.on('ollama:generate', async (event, requestId, body) => {
+  try {
+    const response = await fetch(ollamaUrl('/api/generate'), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        ...body,
+        stream: true
+      })
+    })
+
+    if (!response.ok) {
+      throw new Error(`Ollama said ${response.status}`)
+    }
+
+    if (!response.body) {
+      throw new Error('No stream from Ollama')
+    }
+
+    const reader = response.body.getReader()
+    const decoder = new TextDecoder()
+    let buffer = ''
+
+    while (true) {
+      const { done, value } = await reader.read()
+
+      if (done) {
+        break
+      }
+
+      buffer += decoder.decode(value, { stream: true })
+      const lines = buffer.split('\n')
+      buffer = lines.pop() ?? ''
+
+      for (const line of lines) {
+        if (!line.trim()) {
+          continue
+        }
+
+        const data = JSON.parse(line)
+
+        if (data.response) {
+          event.sender.send('ollama:generate-chunk', requestId, data.response)
+        }
+
+        if (data.done) {
+          event.sender.send('ollama:generate-done', requestId)
+          return
+        }
+      }
+    }
+
+    event.sender.send('ollama:generate-done', requestId)
+  } catch (err) {
+    event.sender.send('ollama:generate-error', requestId, err.message || 'Ollama request failed')
   }
 })

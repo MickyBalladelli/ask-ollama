@@ -1,12 +1,9 @@
 import { useEffect, useState } from 'react'
 import MarkdownResult from './MarkdownResult.jsx'
 import ModelSelect from './ModelSelect.jsx'
+import { generateOllamaAnswer, getOllamaModels } from '../lib/ollamaApi.js'
 
 const defaultPrompt = 'Write a short markdown note about why local LLMs are useful.'
-
-const defaultApiBaseUrl = window.location.protocol === 'file:' ? 'http://localhost:11434' : '/api/ollama'
-const apiBaseUrl = (import.meta.env.VITE_OLLAMA_API_BASE_URL || defaultApiBaseUrl).replace(/\/+$/, '')
-const apiUrl = path => `${apiBaseUrl}${path}`
 
 export default function OllamaChat() {
   const [models, setModels] = useState([])
@@ -22,13 +19,7 @@ export default function OllamaChat() {
     setError('')
 
     try {
-      const response = await fetch(apiUrl('/api/tags'))
-
-      if (!response.ok) {
-        throw new Error(`Ollama models failed ${response.status}`)
-      }
-
-      const data = await response.json()
+      const data = await getOllamaModels()
       const installedModels = data.models ?? []
 
       setModels(installedModels)
@@ -64,57 +55,11 @@ export default function OllamaChat() {
     setLoading(true)
 
     try {
-      const response = await fetch(apiUrl('/api/generate'), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          model,
-          prompt,
-          stream: true
-        })
+      await generateOllamaAnswer({
+        model,
+        prompt,
+        onChunk: chunk => setAnswer(current => current + chunk)
       })
-
-      if (!response.ok) {
-        throw new Error(`Ollama said ${response.status}`)
-      }
-
-      if (!response.body) {
-        throw new Error('No stream from Ollama')
-      }
-
-      const reader = response.body.getReader()
-      const decoder = new TextDecoder()
-      let buffer = ''
-
-      while (true) {
-        const { done, value } = await reader.read()
-
-        if (done) {
-          break
-        }
-
-        buffer += decoder.decode(value, { stream: true })
-        const lines = buffer.split('\n')
-        buffer = lines.pop() ?? ''
-
-        for (const line of lines) {
-          if (!line.trim()) {
-            continue
-          }
-
-          const data = JSON.parse(line)
-
-          if (data.response) {
-            setAnswer(current => current + data.response)
-          }
-
-          if (data.done) {
-            break
-          }
-        }
-      }
     } catch (err) {
       setError(err.message || 'Ollama request failed')
     } finally {

@@ -59,7 +59,15 @@ Build a self-contained Windows app:
 npm run dist:win
 ```
 
-The portable `.exe` is written to `release/`. It bundles the React app and Electron shell. Ollama must still be running on the Windows machine at `http://localhost:11434`.
+The portable `.exe` is written to `release/`. It bundles the React app and Electron shell. Ollama must still be running on the Windows machine.
+
+Build a Mac app:
+
+```bash
+npm run dist:mac
+```
+
+The `.dmg`, `.zip`, and `.app` outputs are written to `release/`. Ollama must still be running on the Mac.
 
 Preview the production build:
 
