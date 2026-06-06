@@ -27,6 +27,68 @@ function messageMatchesSearch(message, search) {
   return `${message.content} ${attachmentText}`.toLowerCase().includes(query)
 }
 
+function clearSearchHighlights(container) {
+  container.querySelectorAll('mark.search-highlight').forEach(mark => {
+    mark.replaceWith(document.createTextNode(mark.textContent))
+  })
+  container.normalize()
+}
+
+function highlightSearchText(container, search) {
+  const query = search.trim()
+
+  clearSearchHighlights(container)
+
+  if (!query) {
+    return
+  }
+
+  const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT, {
+    acceptNode(node) {
+      const parent = node.parentElement
+
+      if (!node.nodeValue || parent?.closest('button')) {
+        return NodeFilter.FILTER_REJECT
+      }
+
+      return node.nodeValue.toLowerCase().includes(query.toLowerCase())
+        ? NodeFilter.FILTER_ACCEPT
+        : NodeFilter.FILTER_REJECT
+    }
+  })
+  const nodes = []
+
+  while (walker.nextNode()) {
+    nodes.push(walker.currentNode)
+  }
+
+  nodes.forEach(node => {
+    const text = node.nodeValue
+    const fragment = document.createDocumentFragment()
+    let index = 0
+
+    while (index < text.length) {
+      const matchIndex = text.toLowerCase().indexOf(query.toLowerCase(), index)
+
+      if (matchIndex === -1) {
+        fragment.append(document.createTextNode(text.slice(index)))
+        break
+      }
+
+      fragment.append(document.createTextNode(text.slice(index, matchIndex)))
+
+      const mark = document.createElement('mark')
+
+      mark.className = 'search-highlight'
+      mark.textContent = text.slice(matchIndex, matchIndex + query.length)
+      fragment.append(mark)
+      index = matchIndex + query.length
+    }
+
+    node.replaceWith(fragment)
+  })
+}
+
 export default function ChatMessages({ messages, loading, search, onEditMessage, onRegenerate }) {
   const messagesRef = useRef(null)
   const autoScrollRef = useRef(true)
@@ -47,6 +109,14 @@ export default function ChatMessages({ messages, loading, search, onEditMessage,
       behavior: 'smooth'
     })
   }, [scrollKey])
+
+  useEffect(() => {
+    if (!messagesRef.current) {
+      return
+    }
+
+    highlightSearchText(messagesRef.current, search)
+  }, [search, scrollKey])
 
   function handleScroll() {
     const element = messagesRef.current

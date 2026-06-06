@@ -247,6 +247,11 @@ select:disabled {
   min-height: 42px;
 }
 
+.chat-tool-button {
+  width: 82px;
+  padding: 0;
+}
+
 .search-count {
   color: #94a3b8;
   font-size: 0.82rem;
@@ -299,6 +304,13 @@ select:disabled {
 .message.search-match {
   border-color: rgba(250, 204, 21, 0.62);
   box-shadow: 0 0 0 2px rgba(250, 204, 21, 0.12);
+}
+
+.search-highlight {
+  border-radius: 4px;
+  padding: 0 2px;
+  color: #111827;
+  background: #fde047;
 }
 
 .message-top {

@@ -26,11 +26,11 @@ export default function ChatTools({
         placeholder="System prompt"
       />
 
-      <button type="button" className="secondary-button" disabled={!hasMessages} onClick={onExport}>
+      <button type="button" className="secondary-button chat-tool-button" disabled={!hasMessages} onClick={onExport}>
         Export
       </button>
 
-      <button type="button" className="secondary-button" disabled={!hasMessages} onClick={onClear}>
+      <button type="button" className="secondary-button chat-tool-button" disabled={!hasMessages} onClick={onClear}>
         Clear
       </button>
     </div>
