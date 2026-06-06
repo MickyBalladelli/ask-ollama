@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import AttachmentList from './AttachmentList.jsx'
+import { extractPdfText } from '../lib/pdfText.js'
 
 const maxFileBytes = 30 * 1024 * 1024
 
@@ -35,7 +36,9 @@ export default function ChatComposer({
       }
 
       try {
-        const content = await file.text()
+        const content = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')
+          ? await extractPdfText(file)
+          : await file.text()
 
         nextAttachments.push({
           id: crypto.randomUUID(),

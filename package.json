@@ -14,11 +14,12 @@
   },
   "dependencies": {
     "@vitejs/plugin-react": "latest",
-    "vite": "latest",
+    "pdfjs-dist": "^6.0.227",
     "react": "latest",
     "react-dom": "latest",
     "react-markdown": "latest",
-    "remark-gfm": "latest"
+    "remark-gfm": "latest",
+    "vite": "latest"
   },
   "devDependencies": {
     "electron": "latest",
