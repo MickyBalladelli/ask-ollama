@@ -13,7 +13,13 @@ const largeContextChars = 120000
 const defaultSettings = {
   theme: 'dark',
   fontSize: 'normal',
-  defaultModel: ''
+  defaultModel: '',
+  voiceName: '',
+  voiceRate: 1,
+  voicePitch: 1,
+  autoReadAnswers: false,
+  micLanguage: 'en-US',
+  keepListening: false
 }
 
 function createSession() {
@@ -771,6 +777,7 @@ export default function OllamaChat() {
           loading={loading}
           search={search}
           searchJump={searchJump}
+          voiceSettings={settings}
           onEditMessage={editMessage}
           onRegenerate={regenerateLastAnswer}
           onCancel={cancelRequest}
@@ -782,6 +789,7 @@ export default function OllamaChat() {
           loading={loading}
           disabled={modelsLoading || !model}
           warning={composerWarning}
+          voiceSettings={settings}
           onChange={setDraft}
           onAttachmentsChange={setAttachments}
           onSubmit={askOllama}

@@ -45,7 +45,8 @@ export default function ChatComposer({
   onAttachmentsChange,
   onSubmit,
   onCancel,
-  warning
+  warning,
+  voiceSettings = {}
 }) {
   const fileInputRef = useRef(null)
   const [fileError, setFileError] = useState('')
@@ -138,9 +139,9 @@ export default function ChatComposer({
     const recognition = new Recognition()
 
     dictationBaseRef.current = value
-    recognition.continuous = false
+    recognition.continuous = Boolean(voiceSettings.keepListening)
     recognition.interimResults = true
-    recognition.lang = navigator.language || 'en-US'
+    recognition.lang = voiceSettings.micLanguage || navigator.language || 'en-US'
     recognitionRef.current = recognition
     setListening(true)
 

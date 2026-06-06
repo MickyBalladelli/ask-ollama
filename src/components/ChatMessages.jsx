@@ -91,9 +91,20 @@ function highlightSearchText(container, search) {
   })
 }
 
-export default function ChatMessages({ messages, loading, search, searchJump, onEditMessage, onRegenerate, onCancel }) {
+export default function ChatMessages({
+  messages,
+  loading,
+  search,
+  searchJump,
+  voiceSettings = {},
+  onEditMessage,
+  onRegenerate,
+  onCancel
+}) {
   const messagesRef = useRef(null)
   const autoScrollRef = useRef(true)
+  const autoReadRef = useRef('')
+  const previousLoadingRef = useRef(loading)
   const [copiedId, setCopiedId] = useState('')
   const [speakingId, setSpeakingId] = useState('')
   const scrollKey = useMemo(
@@ -163,10 +174,32 @@ export default function ChatMessages({ messages, loading, search, searchJump, on
       return
     }
 
-    if (speakText(message.content, () => setSpeakingId(''))) {
+    if (speakText(message.content, voiceSettings, () => setSpeakingId(''))) {
       setSpeakingId(message.id)
     }
   }
+
+  useEffect(() => {
+    const finishedAnswer = previousLoadingRef.current && !loading
+
+    previousLoadingRef.current = loading
+
+    if (!voiceSettings.autoReadAnswers || !finishedAnswer) {
+      return
+    }
+
+    const lastAssistant = [...messages].reverse().find(message => message.role === 'assistant')
+
+    if (!lastAssistant?.content || autoReadRef.current === lastAssistant.id) {
+      return
+    }
+
+    autoReadRef.current = lastAssistant.id
+
+    if (speakText(lastAssistant.content, voiceSettings, () => setSpeakingId(''))) {
+      setSpeakingId(lastAssistant.id)
+    }
+  }, [messages, loading, voiceSettings])
 
   useEffect(() => {
     return () => {
